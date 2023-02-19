@@ -4,7 +4,7 @@ use antlr_rust::{
     parser::ParserNodeType,
     tree::{
         ParseTreeListener, TerminalNode, ErrorNode
-    }
+    }, CoerceTo, parser_rule_context::ParserRuleContext
 };
 
 use super::generated::javaparserlistener::JavaParserListener;
@@ -23,24 +23,44 @@ impl Listener {
     pub fn get_stack(&mut self) -> &mut LinkedList<Node> {
         &mut self.stack
     }
+
+    fn update_stack<T: Fn(&mut Node)>(&mut self, node_type: NodeType, update_attrs: T) {
+        match self.stack.pop_back() {
+            Some(mut node) => {
+                if node.get_node_type() != node_type {
+                    panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}", node_type, node.get_node_type())
+                }
+
+                update_attrs(&mut node);
+
+                match self.stack.back_mut() {
+                    Some(parent) => {
+                        parent.get_members().push_back(node);
+                    },
+                    None => panic!("[ERROR] invalid status. parent node of {:?} not found.", node_type)
+                }
+            },
+            None => panic!("[ERROR] invalid status. {:?} node not found", node_type)
+        };
+    }
 }
 
 impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> for Listener {
     /// Called when parser creates terminal node
     fn visit_terminal(&mut self, _node: &TerminalNode<'input, Node>) {
-        println!("visit_terminal: {:?}", _node);
+        // println!("visit_terminal: {:?}", _node);
     }
     /// Called when parser creates error node
     fn visit_error_node(&mut self, _node: &ErrorNode<'input, Node>) {
-        println!("visit_error_node: {:?}", _node);
+        // println!("visit_error_node: {:?}", _node);
     }
     /// Called when parser enters any rule node
     fn enter_every_rule(&mut self, _ctx: &Node::Type) {
-        println!("enter_every_rule: {:?}", _ctx);
+        // println!("enter_every_rule: {:?}", _ctx);
     }
     /// Called when parser exits any rule node
     fn exit_every_rule(&mut self, _ctx: &Node::Type) {
-        println!("exit_every_rule: {:?}", _ctx);
+        // println!("exit_every_rule: {:?}", _ctx);
     }
 }
 
@@ -50,14 +70,14 @@ impl<'input> JavaParserListener<'input> for Listener {
      * @param ctx the parse tree
      */
     fn enter_compilationUnit(&mut self, _ctx: &CompilationUnitContext<'input>) {
-        println!("enter_compilationUnit: {:?}", _ctx);
+        // println!("enter_compilationUnit: {:?}", _ctx);
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#compilationUnit}.
      * @param ctx the parse tree
      */
     fn exit_compilationUnit(&mut self, _ctx: &CompilationUnitContext<'input>) {
-        println!("exit_compilationUnit: {:?}", _ctx);
+        // println!("exit_compilationUnit: {:?}", _ctx);
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#packageDeclaration}.
@@ -78,22 +98,9 @@ impl<'input> JavaParserListener<'input> for Listener {
                     ids.push(format!("{:?}", id.IDENTIFIER().unwrap()));
                 }
 
-                match self.stack.pop_back() {
-                    Some(mut node) => {
-                        if node.get_node_type() != NodeType::Package {
-                            panic!("[ERROR] invalid node type. expected: Package, actual: {:?}", node.get_node_type())
-                        }
-                        node.set_attr("name", ids.join(".").as_str());
-
-                        match self.stack.back_mut() {
-                            Some(parent) => {
-                                parent.get_members().push_back(node);
-                            },
-                            None => panic!("[ERROR] invalid status. parent node of package not found.")
-                        }
-                    },
-                    None => panic!("[ERROR] invalid status. package node not found")
-                };
+                self.update_stack(NodeType::Package, |node| {
+                    node.set_attr("name", ids.join(".").as_str());
+                });
             },
             None => {}
         }
@@ -110,7 +117,19 @@ impl<'input> JavaParserListener<'input> for Listener {
      * @param ctx the parse tree
      */
     fn exit_importDeclaration(&mut self, _ctx: &ImportDeclarationContext<'input>) {
-        println!("exit_packageDeclaration: {:?}", _ctx);
+        match _ctx.qualifiedName() {
+            Some(qn) => {
+                let mut ids = Vec::new();
+                for id in qn.identifier_all() {
+                    ids.push(format!("{:?}", id.IDENTIFIER().unwrap()));
+                }
+
+                self.update_stack(NodeType::Import, |node| {
+                    node.set_attr("name", ids.join(".").as_str());
+                });
+            },
+            None => {}
+        }
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#typeDeclaration}.
@@ -173,7 +192,7 @@ impl<'input> JavaParserListener<'input> for Listener {
      * @param ctx the parse tree
      */
     fn enter_classDeclaration(&mut self, _ctx: &ClassDeclarationContext<'input>) {
-        println!("enter_classDeclaration: {:?}", _ctx);
+        println!("enter_classDeclaration: {:?}", _ctx.CLASS());
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#classDeclaration}.
@@ -866,7 +885,7 @@ impl<'input> JavaParserListener<'input> for Listener {
      * @param ctx the parse tree
      */
     fn exit_annotation(&mut self, _ctx: &AnnotationContext<'input>) {
-        println!("exit_annotation: {:?}", _ctx);
+        println!("exit_annotation: {:?}", _ctx.elementValuePairs().into_iter().count());
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#elementValuePairs}.

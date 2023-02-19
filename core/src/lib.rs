@@ -1,4 +1,5 @@
 extern crate antlr_rust;
+extern crate serde_json;
 
 mod languages;
 

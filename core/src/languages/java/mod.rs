@@ -49,7 +49,7 @@ impl<'consumer> Analyzer for JavaAnalyzer {
             Ok(_) => {
                 println!("{}", "succeed to parse java file");
                 println!("=========================================");
-                println!("{:?}", parser.remove_parse_listener(listener_id).get_stack().pop_back());
+                println!("{:?}", serde_json::to_string(parser.remove_parse_listener(listener_id).get_stack()));
             },
             Err(error) => {
                 println!("{}", error);

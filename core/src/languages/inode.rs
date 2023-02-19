@@ -1,21 +1,16 @@
 use std::collections::{LinkedList, HashMap};
 use core::fmt::Debug;
+use serde::Serialize;
 
-// pub trait INode<'a>: Debug {
-//     fn get_node_type(&self) -> NodeType;
-//     fn get_attrs(&self) -> HashMap<String, String>;
-//     fn set_attr(&mut self, key: &str, value: &str);
-//     fn get_members(&mut self) -> &mut LinkedList<Box<dyn INode<'a>>>;
-// }
-
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize)]
 pub enum NodeType {
     File,
     Package,
     Import,
+    Class
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Node {
     node_type: NodeType,
     attrs: HashMap<String, String>,
@@ -29,10 +24,6 @@ impl Node {
 
     pub fn get_node_type(&self) -> NodeType {
         self.node_type
-    }
-
-    pub fn set_node_type(&mut self, value: NodeType) {
-        self.node_type = value;
     }
 
     pub fn get_attrs(&self) -> &HashMap<String, String> {
