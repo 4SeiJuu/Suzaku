@@ -1,5 +1,6 @@
 mod generated;
-mod listener;
+mod parser_listener;
+mod walk_listener;
 
 use std::{
     fs,
@@ -11,12 +12,14 @@ use antlr_rust::{
     common_token_stream::CommonTokenStream
 };
 
+use crate::languages::java::walk_listener::WalkListener;
+
 use super::Analyzer;
 use super::inode::Node;
 
 use generated::javalexer::JavaLexer;
 use generated::javaparser::*;
-use listener::Listener;
+use parser_listener::ParserListener;
 
 pub struct JavaAnalyzer {
 }
@@ -36,20 +39,25 @@ impl<'consumer> Analyzer for JavaAnalyzer {
         let lexer = JavaLexer::new(data);
         let token_source = CommonTokenStream::new(lexer);
 
-        let mut parser = JavaParser::new(token_source);
-
-        let mut listener: Listener = Listener::new();
+        let mut parser_listener: ParserListener = ParserListener::new();
         let mut file_node = Node::new(super::inode::NodeType::File);
         file_node.set_attr("path", src);
-        listener.get_stack().push_back(file_node);
+        parser_listener.stack_mut().push(file_node);
 
-        let listener_id = parser.add_parse_listener(Box::new(listener));
+        let mut parser = JavaParser::new(token_source);
+        let listener_id = parser.add_parse_listener(Box::new(parser_listener));
 
         match parser.compilationUnit() {
-            Ok(_) => {
-                println!("{}", "succeed to parse java file");
+            Ok(ctx) => {
                 println!("=========================================");
-                println!("{:?}", serde_json::to_string(parser.remove_parse_listener(listener_id).get_stack()));
+                println!("{}", "succeed to parse java file");
+                println!("-----------------------------------------");
+                println!("{}", serde_json::to_string(parser.remove_parse_listener(listener_id).stack()).unwrap());
+                println!("=========================================");
+
+                // let walk_listener: WalkListener = WalkListener::new();
+                // let boxed_listener = JavaParserTreeWalker::walk(Box::new(walk_listener), ctx.as_ref());
+                // println!("{}", serde_json::to_string(boxed_listener.stack()).unwrap());
             },
             Err(error) => {
                 println!("{}", error);

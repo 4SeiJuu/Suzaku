@@ -7,7 +7,8 @@ pub enum NodeType {
     File,
     Package,
     Import,
-    Class
+    Type,
+    ClassBody,
 }
 
 #[derive(Debug, Serialize)]
@@ -34,7 +35,7 @@ impl Node {
         self.attrs.insert(String::from(key), String::from(value));
     }
 
-    pub fn get_members(&mut self) -> &mut LinkedList<Node> {
+    pub fn get_members_mut(&mut self) -> &mut LinkedList<Node> {
         &mut self.members
     }
 }

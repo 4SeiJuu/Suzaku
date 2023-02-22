@@ -1,6 +1,7 @@
 mod java;
 mod analyzer;
 mod inode;
+mod stack;
 
 pub use analyzer::Analyzer;
 use java::JavaAnalyzer;

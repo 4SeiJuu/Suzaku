@@ -8,7 +8,9 @@ pub fn analysis() {
 
     match languages::AnalyzerFactory::get_analyzer() {
         Some(analyzer) => {
-            analyzer.run("temp/JWTAuthenticationUtil.java");
+            // analyzer.run("temp/JWTAuthenticationUtil.java");
+            analyzer.run("temp/BaseRustTest.java");
+            // analyzer.run("temp/CommentStarted.java");
         },
         None => println!("failed to create analyzer")
     };
