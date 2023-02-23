@@ -8,19 +8,22 @@ pub enum NodeType {
     Package,
     Import,
     Type,
+    Extends,
+    Implements,
+    Permits,
     ClassBody,
 }
 
 #[derive(Debug, Serialize)]
-pub struct Node {
+pub struct ContextNode {
     node_type: NodeType,
     attrs: HashMap<String, String>,
     members: LinkedList<Self>
 }
 
-impl Node {
+impl ContextNode {
     pub fn new(node_type: NodeType) -> Self {
-        Node { node_type: node_type, attrs: HashMap::new(), members: LinkedList::new() }
+        ContextNode { node_type: node_type, attrs: HashMap::new(), members: LinkedList::new() }
     }
 
     pub fn get_node_type(&self) -> NodeType {
@@ -35,7 +38,7 @@ impl Node {
         self.attrs.insert(String::from(key), String::from(value));
     }
 
-    pub fn get_members_mut(&mut self) -> &mut LinkedList<Node> {
+    pub fn get_members_mut(&mut self) -> &mut LinkedList<ContextNode> {
         &mut self.members
     }
 }

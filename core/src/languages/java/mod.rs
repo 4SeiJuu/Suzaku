@@ -15,7 +15,7 @@ use antlr_rust::{
 use crate::languages::java::walk_listener::WalkListener;
 
 use super::Analyzer;
-use super::inode::Node;
+use super::inode::ContextNode;
 
 use generated::javalexer::JavaLexer;
 use generated::javaparser::*;
@@ -40,23 +40,23 @@ impl<'consumer> Analyzer for JavaAnalyzer {
         let token_source = CommonTokenStream::new(lexer);
 
         let mut parser_listener: ParserListener = ParserListener::new();
-        let mut file_node = Node::new(super::inode::NodeType::File);
+        let mut file_node = ContextNode::new(super::inode::NodeType::File);
         file_node.set_attr("path", src);
         parser_listener.stack_mut().push(file_node);
 
         let mut parser = JavaParser::new(token_source);
-        let listener_id = parser.add_parse_listener(Box::new(parser_listener));
+        let _listener_id = parser.add_parse_listener(Box::new(parser_listener));
 
         match parser.compilationUnit() {
-            Ok(ctx) => {
+            Ok(_ctx) => {
                 println!("=========================================");
                 println!("{}", "succeed to parse java file");
                 println!("-----------------------------------------");
-                println!("{}", serde_json::to_string(parser.remove_parse_listener(listener_id).stack()).unwrap());
+                println!("{}", parser.remove_parse_listener(_listener_id).stack().dump().unwrap());
                 println!("=========================================");
 
                 // let walk_listener: WalkListener = WalkListener::new();
-                // let boxed_listener = JavaParserTreeWalker::walk(Box::new(walk_listener), ctx.as_ref());
+                // let boxed_listener = JavaParserTreeWalker::walk(Box::new(walk_listener), _ctx.as_ref());
                 // println!("{}", serde_json::to_string(boxed_listener.stack()).unwrap());
             },
             Err(error) => {

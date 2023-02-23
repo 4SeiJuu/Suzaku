@@ -27,7 +27,7 @@ impl WalkListener {
         &mut self.stack
     }
 
-    fn update_stack<T: Fn(&mut Node)>(&mut self, node_type: NodeType, update_attrs: T) {
+    fn update_stack<T: Fn(&mut ContextNode)>(&mut self, node_type: NodeType, update_attrs: T) {
         match self.stack.pop() {
             Some(mut node) => {
                 if node.get_node_type() != node_type {
@@ -87,7 +87,7 @@ impl<'input> JavaParserListener<'input> for WalkListener {
      * @param ctx the parse tree
      */
     fn enter_packageDeclaration(&mut self, _ctx: &PackageDeclarationContext<'input>) {
-        self.stack.push(Node::new(NodeType::Package))
+        self.stack.push(ContextNode::new(NodeType::Package))
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#packageDeclaration}.
@@ -113,7 +113,7 @@ impl<'input> JavaParserListener<'input> for WalkListener {
      * @param ctx the parse tree
      */
     fn enter_importDeclaration(&mut self, _ctx: &ImportDeclarationContext<'input>) {
-        self.stack.push(Node::new(NodeType::Import))
+        self.stack.push(ContextNode::new(NodeType::Import))
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#importDeclaration}.
