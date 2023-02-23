@@ -12,12 +12,14 @@ pub enum NodeType {
     Implements,
     Permits,
     ClassBody,
+    ClassMember,        // classBodyDeclaration
+    ClassMemberDef,     // memberDeclaration
 }
 
 #[derive(Debug, Serialize)]
 pub struct ContextNode {
     node_type: NodeType,
-    attrs: HashMap<String, String>,
+    attrs: HashMap<String, Vec<String>>,
     members: LinkedList<Self>
 }
 
@@ -30,12 +32,20 @@ impl ContextNode {
         self.node_type
     }
 
-    pub fn get_attrs(&self) -> &HashMap<String, String> {
+    pub fn get_attrs(&self) -> &HashMap<String, Vec<String>> {
         &self.attrs
     }
 
-    pub fn set_attr(&mut self, key: &str, value: &str) {
-        self.attrs.insert(String::from(key), String::from(value));
+    pub fn set_attr(&mut self, key: &str, value: Vec<String>) {
+        self.attrs.insert(String::from(key), value);
+    }
+
+    pub fn add_attr_value(&mut self, key: &str, value: &str) {
+        if self.attrs.contains_key(key) {
+            self.attrs.get_mut(key).unwrap().push(String::from(value));
+        } else {
+            self.attrs.insert(String::from(key), vec![String::from(value)]);
+        }
     }
 
     pub fn get_members_mut(&mut self) -> &mut LinkedList<ContextNode> {

@@ -12,7 +12,7 @@ use antlr_rust::{
     common_token_stream::CommonTokenStream
 };
 
-use crate::languages::java::walk_listener::WalkListener;
+// use crate::languages::java::walk_listener::WalkListener;
 
 use super::Analyzer;
 use super::inode::ContextNode;
@@ -41,7 +41,7 @@ impl<'consumer> Analyzer for JavaAnalyzer {
 
         let mut parser_listener: ParserListener = ParserListener::new();
         let mut file_node = ContextNode::new(super::inode::NodeType::File);
-        file_node.set_attr("path", src);
+        file_node.add_attr_value("path", src);
         parser_listener.stack_mut().push(file_node);
 
         let mut parser = JavaParser::new(token_source);

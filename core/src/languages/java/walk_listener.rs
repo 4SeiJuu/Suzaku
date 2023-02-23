@@ -102,7 +102,7 @@ impl<'input> JavaParserListener<'input> for WalkListener {
                 }
 
                 self.update_stack(NodeType::Package, |node| {
-                    node.set_attr("name", ids.join(".").as_str());
+                    node.add_attr_value("name", ids.join(".").as_str());
                 });
             },
             None => {}
@@ -129,9 +129,9 @@ impl<'input> JavaParserListener<'input> for WalkListener {
 
                 self.update_stack(NodeType::Import, |node| {
                     if let Some(modifier) = _ctx.STATIC() {
-                        node.set_attr("modifier", modifier.get_text().as_str());
+                        node.add_attr_value("modifier", modifier.get_text().as_str());
                     }
-                    node.set_attr("name", ids.join(".").as_str());
+                    node.add_attr_value("name", ids.join(".").as_str());
                 });
             },
             None => {}
