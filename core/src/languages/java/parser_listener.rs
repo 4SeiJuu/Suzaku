@@ -703,7 +703,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
     fn exit_variableInitializer(&mut self, _ctx: &VariableInitializerContext<'input>) {
         println!("exit_variableInitializer: {:?}", _ctx.get_text());
         self.update_cur_node_and_add_attrs_to_parent(|node| {
-            node.add_attr_value("vaeValue", _ctx.get_text().as_str());
+            node.add_attr_value("varValue", _ctx.get_text().as_str());
             false
         })
     }

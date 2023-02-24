@@ -4,7 +4,7 @@ mod walk_listener;
 
 use std::{
     fs,
-    path::Path
+    path::Path,
 };
 
 use antlr_rust::{
@@ -14,7 +14,7 @@ use antlr_rust::{
 
 // use crate::languages::java::walk_listener::WalkListener;
 
-use super::Analyzer;
+use super::{Analyzer, Result, AnalyzerError};
 use super::inode::ContextNode;
 
 use generated::javalexer::JavaLexer;
@@ -32,7 +32,7 @@ impl<'consumer> Analyzer for JavaAnalyzer {
         JavaAnalyzer {}
     }
 
-    fn run(&self, src: &str) {
+    fn analysis(&self, src: &str) -> Result<String> {
         let content = fs::read_to_string(Path::new(&String::from(src))).expect("should read context of file");
         let data = InputStream::new(content.as_str());
 
@@ -47,13 +47,14 @@ impl<'consumer> Analyzer for JavaAnalyzer {
         let mut parser = JavaParser::new(token_source);
         let _listener_id = parser.add_parse_listener(Box::new(parser_listener));
 
-        match parser.compilationUnit() {
-            Ok(_ctx) => {
+        let analysis_results = parser.compilationUnit();
+        match analysis_results {
+            Ok(_) => {
                 println!("=========================================");
                 println!("{}", "succeed to parse java file");
-                println!("-----------------------------------------");
-                println!("{}", parser.remove_parse_listener(_listener_id).stack().dump().unwrap());
                 println!("=========================================");
+                
+                Ok(parser.remove_parse_listener(_listener_id).stack().dump().unwrap())
 
                 // let walk_listener: WalkListener = WalkListener::new();
                 // let boxed_listener = JavaParserTreeWalker::walk(Box::new(walk_listener), _ctx.as_ref());
@@ -61,8 +62,9 @@ impl<'consumer> Analyzer for JavaAnalyzer {
             },
             Err(error) => {
                 println!("{}", error);
+                Err(AnalyzerError {  })
             }
-        };
+        }
     }
 }
 

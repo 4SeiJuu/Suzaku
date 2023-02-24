@@ -1,4 +1,7 @@
+pub struct AnalyzerError {}
+pub type Result<String> = std::result::Result<String, AnalyzerError>;
+
 pub trait Analyzer {
     fn new() -> Self;
-    fn run(&self, src: &str);
+    fn analysis(&self, src: &str) -> Result<String>;
 }

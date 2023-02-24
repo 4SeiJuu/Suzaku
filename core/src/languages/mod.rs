@@ -3,7 +3,7 @@ mod analyzer;
 mod inode;
 mod stack;
 
-pub use analyzer::Analyzer;
+pub use analyzer::{Analyzer, AnalyzerError, Result};
 use java::JavaAnalyzer;
 
 pub struct AnalyzerFactory {}
