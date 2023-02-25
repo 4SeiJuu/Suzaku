@@ -27,35 +27,41 @@ impl ParserListener {
         &mut self.stack
     }
 
-    fn update_cur_node_and_add_to_parent_members<T: Fn(&mut ContextNode) -> bool>(&mut self, node_type: NodeType, update_attrs: T) {
-        let mut poped_node = self.stack_mut().pop().unwrap_or_else(|| panic!("[ERROR] invalid status. {:?} node not found", node_type));
-        if poped_node.get_node_type() != node_type {
-            panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}", node_type, poped_node.get_node_type())
+    fn update_node_attrs<T: Fn(&mut ContextNode)>(&mut self, node_type: Option<NodeType>, update_attrs: T) -> Option<&ContextNode> {
+        let mut top_node = self.stack_mut().top_mut().unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
+        if let Some(expected_node_type) = node_type {
+            if top_node.get_node_type() != expected_node_type {
+                panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}", expected_node_type, top_node.get_node_type())
+            }
         }
-
-        if update_attrs(&mut poped_node) {
-            let parent = self.stack_mut().top_mut().unwrap_or_else(|| panic!("[ERROR] invalid status. parent node of {:?} not found.", node_type));
-            parent.get_members_mut().push_back(poped_node);
-        } else {
-            self.stack_mut().push(poped_node);
-        }
+        update_attrs(&mut top_node);
+        Some(top_node)
     }
 
-    fn update_cur_node_and_add_attrs_to_parent<T: Fn(&mut ContextNode) -> bool>(&mut self, update_attrs: T) {
+    fn merge_node_to_parent(&mut self) {
+        println!("{}", self.stack().dump().unwrap());
+
         let mut poped_node = self.stack_mut().pop().unwrap_or_else(|| panic!("[ERROR] invalid status. top node not found."));
-        if update_attrs(&mut poped_node) {
-            let parent = self.stack_mut().top_mut().unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
-            match poped_node.get_node_type() {
-                NodeType::Extends | NodeType::Implements => parent.set_attr(format!("{:?}", poped_node.get_node_type()).to_lowercase().as_str(), 
-                    poped_node.get_attrs().get("value").unwrap().clone()),
-                NodeType::ClassMemberDef => for iter in poped_node.get_attrs().iter() {
+        let parent = self.stack_mut().top_mut().unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
+        match poped_node.get_node_type() {
+            NodeType::Extends | NodeType::Implements => {
+                parent.set_attr(format!("{:?}", poped_node.get_node_type()).to_lowercase().as_str(),
+                poped_node.get_attrs().get("value").unwrap().clone());
+            },
+            NodeType::ClassMemberDef => {
+                for iter in poped_node.get_attrs().iter() {
                     parent.set_attr(iter.0.as_str(), iter.1.clone());
-                },
-                _ => ()
-            }
-        } else {
-            self.stack_mut().push(poped_node);
-        }
+                }
+            },
+            _ => ()
+        };
+        parent.get_members_mut().append(poped_node.get_members_mut());
+    }
+
+    fn add_to_parent_member(&mut self) {
+        let poped_node = self.stack_mut().pop().unwrap_or_else(|| panic!("[ERROR] invalid status. top node not found."));
+        let parent = self.stack_mut().top_mut().unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
+        parent.get_members_mut().push_back(poped_node);
     }
 }
 
@@ -111,19 +117,17 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_packageDeclaration(&mut self, _ctx: &PackageDeclarationContext<'input>) {
-        match _ctx.qualifiedName() {
-            Some(qn) => {
-                let mut ids = Vec::new();
-                for id in qn.identifier_all() {
-                    ids.push(format!("{:?}", id.IDENTIFIER().unwrap()));
-                }
+        if let Some(qn) = _ctx.qualifiedName() {
+            let mut ids = Vec::new();
+            for id in qn.identifier_all() {
+                ids.push(format!("{:?}", id.IDENTIFIER().unwrap()));
+            }
 
-                self.update_cur_node_and_add_to_parent_members(NodeType::Package, |node| {
-                    node.add_attr_value("name", ids.join(".").as_str());
-                    true
-                });
-            },
-            None => {}
+            self.update_node_attrs(Some(NodeType::Package), |node| {
+                node.add_attr_value("name", ids.join(".").as_str());
+                // true
+            });
+            self.add_to_parent_member();
         }
     }
     /**
@@ -144,13 +148,13 @@ impl<'input> JavaParserListener<'input> for ParserListener {
                 ids.push(format!("{:?}", id.IDENTIFIER().unwrap()));
             }
 
-            self.update_cur_node_and_add_to_parent_members(NodeType::Import, |node| {
+            self.update_node_attrs(Some(NodeType::Import), |node| {
                 if let Some(modifier) = _ctx.STATIC() {
                     node.add_attr_value("modifier", modifier.get_text().as_str());
                 }
                 node.add_attr_value("name", ids.join(".").as_str());
-                true
             });
+            self.add_to_parent_member();
         }
     }
     /**
@@ -165,7 +169,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeDeclaration(&mut self, _ctx: &TypeDeclarationContext<'input>) {
-        self.update_cur_node_and_add_to_parent_members(NodeType::Type, |_| {true})
+        self.add_to_parent_member();
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#modifier}.
@@ -367,7 +371,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classBody(&mut self, _ctx: &ClassBodyContext<'input>) {
         println!("exit_classBody: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_to_parent_members(NodeType::ClassBody, |_| {true})
+        self.add_to_parent_member();
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#interfaceBody}.
@@ -397,7 +401,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classBodyDeclaration(&mut self, _ctx: &ClassBodyDeclarationContext<'input>) {
         println!("exit_classBodyDeclaration: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_to_parent_members(NodeType::ClassMember, |_| {true})
+        self.add_to_parent_member();
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#memberDeclaration}.
@@ -413,7 +417,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_memberDeclaration(&mut self, _ctx: &MemberDeclarationContext<'input>) {
         println!("exit_memberDeclaration: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_attrs_to_parent(|_| {true})
+        self.add_to_parent_member();
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#methodDeclaration}.
@@ -519,10 +523,9 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_fieldDeclaration(&mut self, _ctx: &FieldDeclarationContext<'input>) {
         println!("enter_fieldDeclaration: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_attrs_to_parent(|node| {
+        self.update_node_attrs(None, |node| {
             node.add_attr_value("type", "field");
-            false
-        })
+        });
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#fieldDeclaration}.
@@ -684,9 +687,8 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_variableDeclaratorId(&mut self, _ctx: &VariableDeclaratorIdContext<'input>) {
         println!("exit_variableDeclaratorId: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_attrs_to_parent(|node| {
+        self.update_node_attrs(None, |node| {
             node.add_attr_value("varName", _ctx.get_text().as_str());
-            false
         });
     }
     /**
@@ -702,10 +704,9 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_variableInitializer(&mut self, _ctx: &VariableInitializerContext<'input>) {
         println!("exit_variableInitializer: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_attrs_to_parent(|node| {
+        self.update_node_attrs(None, |node| {
             node.add_attr_value("varValue", _ctx.get_text().as_str());
-            false
-        })
+        });
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#arrayInitializer}.
@@ -1319,9 +1320,8 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeIdentifier(&mut self, _ctx: &TypeIdentifierContext<'input>) {
         println!("exit_typeIdentifier: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_attrs_to_parent(|node| {
+        self.update_node_attrs(None, |node| {
             node.add_attr_value("identType", _ctx.get_text().as_str());
-            false
         });
     }
     /**
@@ -1841,15 +1841,17 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeList(&mut self, _ctx: &TypeListContext<'input>) {
         println!("exit_typeList: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_attrs_to_parent(|node| {
+        if let Some(top_node) = self.update_node_attrs(None, |node| {
             match node.get_node_type() {
-                NodeType::Implements | NodeType::Permits => {
-                    node.add_attr_value("value", _ctx.get_text().as_str());
-                    true
-                },
-                _ => false
+                NodeType::Implements | NodeType::Permits => node.add_attr_value("value", _ctx.get_text().as_str()),
+                _ => ()
             }
-        });
+        }) {
+            match top_node.get_node_type() {
+                NodeType::Implements | NodeType::Permits => self.merge_node_to_parent(),
+                _ => ()
+            }
+        }
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#typeType}.
@@ -1864,15 +1866,17 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeType(&mut self, _ctx: &TypeTypeContext<'input>) {
         println!("exit_typeType: {:?}", _ctx.get_text());
-        self.update_cur_node_and_add_attrs_to_parent(|node| {
+        if let Some(top_node) = self.update_node_attrs(None, |node| {
             match node.get_node_type() {
-                NodeType::Extends => {
-                    node.add_attr_value("value", _ctx.get_text().as_str());
-                    true
-                },
-                _ => false
+                NodeType::Extends => node.add_attr_value("value", _ctx.get_text().as_str()),
+                _ => ()
             }
-        });
+        }) {
+            match top_node.get_node_type() {
+                NodeType::Extends => self.merge_node_to_parent(),
+                _ => ()
+            }
+        }
     }
     /**
      * Enter a parse tree produced by {@link JavaParser#primitiveType}.

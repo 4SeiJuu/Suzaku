@@ -5,13 +5,13 @@ use serde::Serialize;
 #[derive(Debug, PartialEq, Copy, Clone, Serialize)]
 pub enum NodeType {
     File,
-    Package,
-    Import,
-    Type,
+    Package,            // packageDeclaration
+    Import,             // importDeclaration
+    Type,               // typeDeclaration
     Extends,
     Implements,
     Permits,
-    ClassBody,
+    ClassBody,          // classBody
     ClassMember,        // classBodyDeclaration
     ClassMemberDef,     // memberDeclaration
 }
