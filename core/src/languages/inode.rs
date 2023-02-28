@@ -195,6 +195,52 @@ impl ContextNode {
         }
 
         self_rf.members.clear();
-        self_rf.members.append(&mut valid_children);
+
+        if let Some(mut reorganized_children) = self_rf.reorganize_special_node(&mut valid_children) {
+            self_rf.members.append(&mut reorganized_children);
+        }
+    }
+
+    fn reorganize_special_node<'a>(&mut self, candidate_children: &'a mut LinkedList<ContextNode>) -> Option<&'a mut LinkedList<ContextNode>> {
+        match self.get_node_type() {
+            NodeType::ImportDeclaration | NodeType::PackageDeclaration => Self::reorganize_children_of_import_declaration_node(candidate_children),
+            NodeType::VariableInitializer | NodeType::ExpressionList => Self::reorganize_children_of_variable_initializer_node(candidate_children),
+            _ => Some(candidate_children)
+        }
+    }
+
+    fn reorganize_children_of_import_declaration_node<'a>(children: &'a mut LinkedList<ContextNode>) -> Option<&'a mut LinkedList<ContextNode>> {
+        let cloned = children.clone();
+        children.clear();
+        for mut node in cloned {
+            if node.get_node_type() == NodeType::QualifiedName {
+                let mut items: Vec<String> = Vec::new();
+                while let Some(child) = node.get_members_mut().pop_front() {
+                    if let Some(attr) = child.get_attr().clone() {
+                        items.push(attr);
+                    }
+                }
+                node.set_attr(items.join(".").as_str())
+            }
+            children.push_back(node);
+        }
+        Some(children)
+    }
+
+    fn reorganize_children_of_variable_initializer_node<'a>(chidlren: &'a mut LinkedList<ContextNode>) -> Option<&'a mut LinkedList<ContextNode>> {
+        if chidlren.len() == 2 
+            && chidlren.front().unwrap().get_node_type() == NodeType::Expression 
+            && chidlren.back().unwrap().get_node_type() == NodeType::MethodCall {
+                let expression_node = chidlren.pop_front().unwrap();
+                let mut method_call_node = chidlren.pop_back().unwrap();
+                for member in method_call_node.get_members_mut() {
+                    if member.get_node_type() == NodeType::Identifier {
+                        member.set_attr(format!("{}.{}", expression_node.get_attr().as_ref().unwrap(), member.get_attr().as_ref().unwrap()).as_str());
+                    }
+                }
+                chidlren.push_back(method_call_node);
+                return Some(chidlren);
+            }
+            Some(chidlren)
     }
 }

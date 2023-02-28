@@ -58,6 +58,16 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
                 op_node.set_attr(_node.get_text().as_str());
                 self.stack_mut().top_mut().unwrap().get_members_mut().push_back(op_node);
             },
+            "static" => match self.stack_mut().top_mut().unwrap().get_node_type() {
+                NodeType::ImportDeclaration | NodeType::ClassBodyDeclaration => {
+                    if let Some(top_node) = self.stack_mut().top_mut() {
+                        let mut modifier_node = ContextNode::new(NodeType::Modifier);
+                        modifier_node.set_attr("static");
+                        top_node.get_members_mut().push_back(modifier_node);
+                    }
+                },
+                _ => ()
+            },
             _ => ()
         }
     }
