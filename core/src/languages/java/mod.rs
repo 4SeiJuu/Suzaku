@@ -1,6 +1,5 @@
 mod generated;
 mod parser_listener;
-mod walk_listener;
 
 use std::{
     fs,
@@ -11,8 +10,6 @@ use antlr_rust::{
     InputStream,
     common_token_stream::CommonTokenStream
 };
-
-// use crate::languages::java::walk_listener::WalkListener;
 
 use super::{Analyzer, Result, AnalyzerError};
 use super::inode::ContextNode;
@@ -41,7 +38,7 @@ impl<'consumer> Analyzer for JavaAnalyzer {
 
         let mut parser_listener: ParserListener = ParserListener::new();
         let mut file_node = ContextNode::new(super::inode::NodeType::File);
-        file_node.add_attr_value("path", src);
+        file_node.set_attr(src);
         parser_listener.stack_mut().push(file_node);
 
         let mut parser = JavaParser::new(token_source);
@@ -55,10 +52,6 @@ impl<'consumer> Analyzer for JavaAnalyzer {
                 println!("=========================================");
                 
                 Ok(parser.remove_parse_listener(_listener_id).stack().dump().unwrap())
-
-                // let walk_listener: WalkListener = WalkListener::new();
-                // let boxed_listener = JavaParserTreeWalker::walk(Box::new(walk_listener), _ctx.as_ref());
-                // println!("{}", serde_json::to_string(boxed_listener.stack()).unwrap());
             },
             Err(error) => {
                 println!("{}", error);
