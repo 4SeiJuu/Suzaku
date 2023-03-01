@@ -1,5 +1,5 @@
 extern crate core;
 
 fn main() {
-    core::analysis();
+    core::analysis("./temp", "./temp");
 }

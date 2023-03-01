@@ -27,6 +27,8 @@ use generated::javaparser::*;
 use parser_listener::ParserListener;
 use super::inode::INode;
 
+pub const SRC_FILE_EXTENSION: &str = "java";
+
 pub struct JavaAnalyzer {
 }
 
@@ -85,5 +87,9 @@ impl<'consumer> Analyzer for JavaAnalyzer {
             println!("Result Json File: {}", output_file_path.to_str().unwrap());
         }
         Err(AnalyzerError {  })
+    }
+
+    fn get_src_file_extension(&self) -> &str {
+        SRC_FILE_EXTENSION
     }
 }

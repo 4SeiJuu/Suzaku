@@ -229,10 +229,7 @@ impl JavaNode {
         }
     }
 
-    fn reorganize_special_node<'a>(
-        &mut self,
-        candidate_children: &'a mut LinkedList<JavaNode>,
-    ) -> Option<&'a mut LinkedList<JavaNode>> {
+    fn reorganize_special_node<'a>(&mut self, candidate_children: &'a mut LinkedList<JavaNode>) -> Option<&'a mut LinkedList<JavaNode>> {
         match self.get_node_type() {
             JavaNodeType::ImportDeclaration | JavaNodeType::PackageDeclaration => {
                 Self::reorganize_children_of_import_declaration_node(candidate_children)
@@ -247,9 +244,7 @@ impl JavaNode {
         }
     }
 
-    fn reorganize_children_of_import_declaration_node<'a>(
-        children: &'a mut LinkedList<JavaNode>,
-    ) -> Option<&'a mut LinkedList<JavaNode>> {
+    fn reorganize_children_of_import_declaration_node<'a>(children: &'a mut LinkedList<JavaNode>) -> Option<&'a mut LinkedList<JavaNode>> {
         let cloned = children.clone();
         children.clear();
         for mut node in cloned {
@@ -267,9 +262,7 @@ impl JavaNode {
         Some(children)
     }
 
-    fn reorganize_children_of_variable_initializer_node<'a>(
-        chidlren: &'a mut LinkedList<JavaNode>,
-    ) -> Option<&'a mut LinkedList<JavaNode>> {
+    fn reorganize_children_of_variable_initializer_node<'a>(chidlren: &'a mut LinkedList<JavaNode>) -> Option<&'a mut LinkedList<JavaNode>> {
         if chidlren.len() == 2
             && chidlren.front().unwrap().get_node_type() == JavaNodeType::Expression
             && chidlren.back().unwrap().get_node_type() == JavaNodeType::MethodCall
@@ -294,20 +287,18 @@ impl JavaNode {
         Some(chidlren)
     }
 
-    fn reorganize_children_of_type_declaration_node<'a>(
-        children: &'a mut LinkedList<JavaNode>,
-    ) -> Option<&'a mut LinkedList<JavaNode>> {
-        assert_eq!(children.len(), 2);
-
-        let class_or_interface_modifier = children.pop_front().unwrap();
-        let mut modifier = JavaNode::new(JavaNodeType::Modifier);
-        if let Some(attr) = class_or_interface_modifier.get_attr() {
-            modifier.set_attr(attr.as_str());
+    fn reorganize_children_of_type_declaration_node<'a>(children: &'a mut LinkedList<JavaNode>) -> Option<&'a mut LinkedList<JavaNode>> {
+        if let Some(mut class_declaration) = children.pop_back() {
+            while let Some(child) = children.pop_back() {
+                assert_eq!(child.get_node_type(), JavaNodeType::ClassOrInterfaceModifier);
+                if let Some(attr) = child.get_attr() {
+                    let mut modifier = JavaNode::new(JavaNodeType::Modifier);
+                    modifier.set_attr(attr);
+                    class_declaration.get_members_mut().push_front(modifier);
+                }
+            }
+            children.push_back(class_declaration);
         }
-
-        let mut declaration = children.pop_back().unwrap();
-        declaration.get_members_mut().push_front(modifier);
-        children.push_back(declaration);
 
         Some(children)
     }
