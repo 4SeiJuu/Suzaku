@@ -1,29 +1,28 @@
 use std::collections::LinkedList;
 use serde::Serialize;
 use serde_json::error::Result;
-use super::inode::ContextNode;
 
 #[derive(Debug, Serialize)]
-pub struct Stack(LinkedList<ContextNode>);
+pub struct Stack<T: Serialize>(LinkedList<T>);
 
-impl Stack {
+impl<T: Serialize> Stack<T> {
     pub fn new() -> Self {
         Stack(LinkedList::new())
     }
 
-    pub fn push(&mut self, node: ContextNode) {
+    pub fn push(&mut self, node: T) {
         self.0.push_back(node)
     }
 
-    pub fn pop(&mut self) -> Option<ContextNode> {
+    pub fn pop(&mut self) -> Option<T> {
         self.0.pop_back()
     }
 
-    pub fn top(&self) -> Option<&ContextNode> {
+    pub fn top(&self) -> Option<&T> {
         self.0.back()
     }
 
-    pub fn top_mut(&mut self) -> Option<&mut ContextNode> {
+    pub fn top_mut(&mut self) -> Option<&mut T> {
         self.0.back_mut()
     }
 
