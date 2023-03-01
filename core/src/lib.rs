@@ -1,6 +1,7 @@
 extern crate antlr_rust;
 extern crate serde_json;
 extern crate glob;
+extern crate regex;
 
 use std::{
     path::{PathBuf, Path},

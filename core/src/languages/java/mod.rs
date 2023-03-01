@@ -21,6 +21,7 @@ use super::{
     PARSED_RESULT_FOLDER_NAME,
 };
 use java_node::JavaNode;
+use regex::Regex;
 
 use generated::javalexer::JavaLexer;
 use generated::javaparser::*;
@@ -35,7 +36,10 @@ pub struct JavaAnalyzer {
 impl JavaAnalyzer {
     fn parse(&self, src: &str) -> Option<JavaNode> {
         let content = fs::read_to_string(Path::new(&String::from(src))).expect("should read context of file");
-        let data = InputStream::new(content.as_str());
+        let re = Regex::new(r"/\*(.|\n)*?\*/").unwrap();
+        let no_comments_content = re.replace_all(content.as_str(), "");
+
+        let data = InputStream::new(no_comments_content.trim());
 
         let lexer = JavaLexer::new(data);
         let token_source = CommonTokenStream::new(lexer);
