@@ -133,7 +133,9 @@ pub enum NodeType {
     SuperSuffix,
     ExplicitGenericInvocationSuffix,
     Arguments,
+
     Operator,
+    Keyword,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -181,15 +183,23 @@ impl ContextNode {
         for mut child in children {
             child.reorganize_children();
 
+            match child.get_node_type() {
+                NodeType::RecordDeclaration | NodeType::MethodDeclaration | NodeType::GenericMethodDeclaration | NodeType::FieldDeclaration 
+                | NodeType::ConstructorDeclaration | NodeType::GenericConstructorDeclaration | NodeType::InterfaceDeclaration 
+                | NodeType::AnnotationTypeDeclaration | NodeType::ClassDeclaration | NodeType::EnumDeclaration => {
+                    valid_children.push_back(child.clone());
+                    continue
+                },
+                _ => ()
+            };
+
             let ctx_opt = self_rf.clone().attr;
             let child_ctx_opt = child.attr.clone();
             if ctx_opt == child_ctx_opt {
-                println!("[Removed] Parent: {} - Child: {}", ctx_opt.unwrap(), child_ctx_opt.unwrap());
                 if !child.get_members().is_empty() {
                     valid_children.append(child.get_members_mut());
                 }
             } else {
-                println!("[Kept] Parent: {} - Child: {}", ctx_opt.unwrap(), child_ctx_opt.unwrap());
                 valid_children.push_back(child.clone());
             }
         }
@@ -204,6 +214,7 @@ impl ContextNode {
     fn reorganize_special_node<'a>(&mut self, candidate_children: &'a mut LinkedList<ContextNode>) -> Option<&'a mut LinkedList<ContextNode>> {
         match self.get_node_type() {
             NodeType::ImportDeclaration | NodeType::PackageDeclaration => Self::reorganize_children_of_import_declaration_node(candidate_children),
+            NodeType::TypeDeclaration => Self::reorganize_children_of_type_declaration_node(candidate_children),
             NodeType::VariableInitializer | NodeType::ExpressionList => Self::reorganize_children_of_variable_initializer_node(candidate_children),
             _ => Some(candidate_children)
         }
@@ -242,5 +253,21 @@ impl ContextNode {
                 return Some(chidlren);
             }
             Some(chidlren)
+    }
+
+    fn reorganize_children_of_type_declaration_node<'a>(children: &'a mut LinkedList<ContextNode>) -> Option<&'a mut LinkedList<ContextNode>> {
+        assert_eq!(children.len(), 2);
+
+        let class_or_interface_modifier = children.pop_front().unwrap();
+        let mut modifier = ContextNode::new(NodeType::Modifier);
+        if let Some(attr) = class_or_interface_modifier.get_attr() {
+            modifier.set_attr(attr.as_str());
+        }
+
+        let mut declaration = children.pop_back().unwrap();
+        declaration.get_members_mut().push_front(modifier);
+        children.push_back(declaration);
+
+        Some(children)
     }
 }

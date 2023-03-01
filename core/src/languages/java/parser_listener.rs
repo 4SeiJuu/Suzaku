@@ -42,6 +42,14 @@ impl ParserListener {
         let mut poped_node = self.stack_mut().pop().unwrap_or_else(|| panic!("[ERROR] invalid status. top node not found."));
         poped_node.reorganize_children();
 
+        match poped_node.get_node_type() {
+            NodeType::TypeDeclaration | NodeType::MemberDeclaration | NodeType::InterfaceMemberDeclaration => {
+                assert_eq!(poped_node.get_members().len(), 1);
+                poped_node = poped_node.get_members_mut().pop_back().unwrap();
+            },
+            _ => ()
+        };
+
         let parent = self.stack_mut().top_mut().unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
         parent.get_members_mut().push_back(poped_node);
     }
@@ -62,12 +70,19 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
                 NodeType::ImportDeclaration | NodeType::ClassBodyDeclaration => {
                     if let Some(top_node) = self.stack_mut().top_mut() {
                         let mut modifier_node = ContextNode::new(NodeType::Modifier);
-                        modifier_node.set_attr("static");
+                        modifier_node.set_attr(_node.get_text().as_str());
                         top_node.get_members_mut().push_back(modifier_node);
                     }
                 },
                 _ => ()
             },
+            "throws" | "return" | "if" | "else" => {
+                if let Some(top_node) = self.stack_mut().top_mut() {
+                    let mut keyword_node = ContextNode::new(NodeType::Keyword);
+                    keyword_node.set_attr(_node.get_text().as_str());
+                    top_node.get_members_mut().push_back(keyword_node);
+                }
+            }
             _ => ()
         }
     }
