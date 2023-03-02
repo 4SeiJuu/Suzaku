@@ -65,8 +65,7 @@ impl ParserListener {
 
         match poped_node.get_node_type() {
             JavaNodeType::TypeDeclaration
-            | JavaNodeType::MemberDeclaration
-            | JavaNodeType::InterfaceMemberDeclaration => {
+            | JavaNodeType::MemberDeclaration => {
                 assert_eq!(poped_node.get_members().len(), 1);
                 poped_node = poped_node.get_members_mut().pop_back().unwrap();
             }

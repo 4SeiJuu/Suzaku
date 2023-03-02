@@ -12,15 +12,19 @@ mod languages;
 
 type GenericError = Box<dyn Error + Send + Sync + 'static>;
 
-pub fn analysis(src_dir: &str, output_dir: &str) {
+pub fn analysis(src_dir: &PathBuf, output_dir: &PathBuf) {
     use languages::Analyzer;
 
     match languages::AnalyzerFactory::get_analyzer() {
         Some(analyzer) => {
-            let filename_pattern = format!("*.{}", analyzer.get_src_file_extension());
+            let filename_pattern = format!("{}/**/*.{}", src_dir.to_str().unwrap(), analyzer.get_src_file_extension());
             if let Some(files) = list_files(src_dir, filename_pattern.as_str()) {
                 for f in files {
-                    if let Ok(_) = analyzer.execute(f.as_str(), output_dir) {
+                    print!(" * analysing '{}' ... ", f);
+                    if let Ok(output_file_path) = analyzer.execute(&Path::new(f.as_str()).to_path_buf(), output_dir) {
+                        println!("done - Output: {}", output_file_path);
+                    } else {
+                        println!("failed");
                     }
                 }
             }
@@ -29,13 +33,13 @@ pub fn analysis(src_dir: &str, output_dir: &str) {
     };
 }
 
-fn list_files(src_dir: &str, filename_pattern: &str) -> Option<Vec<String>> {
-    if let Some(glob_pattern) = Path::new(src_dir).join(filename_pattern).to_str() {
+fn list_files<'a>(src_dir: &PathBuf, filename_pattern: &str) -> Option<Vec<String>> {
+    if let Some(glob_pattern) = src_dir.clone().join(filename_pattern).to_str() {
         let files: &mut Vec<String> = &mut vec![];
         _ = walk(glob_pattern, &mut |p| {
             if let Some(str) = p.to_str() {
-                files.push(String::from(str))
-            } 
+                files.push(String::from(str));
+            }
         });
         return Some(files.clone());
     }

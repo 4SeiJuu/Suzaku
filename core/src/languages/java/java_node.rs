@@ -231,15 +231,9 @@ impl JavaNode {
 
     fn reorganize_special_node<'a>(&mut self, candidate_children: &'a mut LinkedList<JavaNode>) -> Option<&'a mut LinkedList<JavaNode>> {
         match self.get_node_type() {
-            JavaNodeType::ImportDeclaration | JavaNodeType::PackageDeclaration => {
-                Self::reorganize_children_of_import_declaration_node(candidate_children)
-            }
-            JavaNodeType::TypeDeclaration => {
-                Self::reorganize_children_of_type_declaration_node(candidate_children)
-            }
-            JavaNodeType::VariableInitializer | JavaNodeType::ExpressionList => {
-                Self::reorganize_children_of_variable_initializer_node(candidate_children)
-            }
+            JavaNodeType::ImportDeclaration | JavaNodeType::PackageDeclaration => Self::reorganize_children_of_import_declaration_node(candidate_children),
+            JavaNodeType::TypeDeclaration => Self::reorganize_children_of_type_declaration_node(candidate_children),
+            JavaNodeType::VariableInitializer | JavaNodeType::ExpressionList => Self::reorganize_children_of_variable_initializer_node(candidate_children),
             _ => Some(candidate_children),
         }
     }

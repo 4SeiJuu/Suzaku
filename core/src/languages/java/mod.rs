@@ -2,6 +2,7 @@ mod generated;
 mod parser_listener;
 mod java_node;
 
+use std::path::PathBuf;
 use std::{
     fs,
     fs::File,
@@ -34,8 +35,9 @@ pub struct JavaAnalyzer {
 }
 
 impl JavaAnalyzer {
-    fn parse(&self, src: &str) -> Option<JavaNode> {
-        let content = fs::read_to_string(Path::new(&String::from(src))).expect("should read context of file");
+    fn parse(&self, src: &PathBuf) -> Option<JavaNode> {
+        let content = fs::read_to_string(src).expect("should read context of file");
+
         let re = Regex::new(r"/\*(.|\n)*?\*/").unwrap();
         let no_comments_content = re.replace_all(content.as_str(), "");
 
@@ -46,7 +48,7 @@ impl JavaAnalyzer {
 
         let mut parser_listener: ParserListener = ParserListener::new();
         let mut file_node = JavaNode::new(java_node::JavaNodeType::File);
-        file_node.set_attr(src);
+        file_node.set_attr(src.to_str().unwrap());
         parser_listener.stack_mut().push(file_node);
 
         let mut parser = JavaParser::new(token_source);
@@ -71,7 +73,7 @@ impl<'consumer> Analyzer for JavaAnalyzer {
         JavaAnalyzer {}
     }
 
-    fn execute(&self, src: &str, output_dir: &str) -> Result<String> {
+    fn execute(&self, src: &PathBuf, output_dir: &PathBuf) -> Result<String> {
         if let Some(tree) = self.parse(src) {
             let output_folder_path = Path::new(output_dir).join(PARSED_RESULT_FOLDER_NAME);
             if !output_folder_path.exists() {
@@ -85,10 +87,11 @@ impl<'consumer> Analyzer for JavaAnalyzer {
                 let _ = f.flush();
             }
 
-            println!("=========================================");
-            println!("{}", "succeed to parse java file");
-            println!("=========================================");
-            println!("Result Json File: {}", output_file_path.to_str().unwrap());
+            // println!("=========================================");
+            // println!("{}", "succeed to parse java file");
+            // println!("=========================================");
+            // println!("Result Json File: {}", output_file_path.to_str().unwrap());
+            return Ok(String::from(output_file_path.to_str().unwrap()));
         }
         Err(AnalyzerError {  })
     }
