@@ -1,142 +1,15 @@
 use core::fmt::Debug;
+
 use serde::Serialize;
 use serde_json::Result;
-use std::{cell::RefCell, collections::LinkedList};
+use std::{
+    cell::RefCell, 
+    collections::LinkedList
+};
 
-use super::super::inode::INode;
+use suzaku_extension_sdk::language::inode::INode;
+use super::java_node_type::JavaNodeType;
 
-#[derive(Debug, PartialEq, Copy, Clone, Serialize)]
-pub enum JavaNodeType {
-    File,
-    PackageDeclaration,
-    ImportDeclaration,
-    TypeDeclaration,
-    Modifier,
-    ClassOrInterfaceModifier,
-    VariableModifier,
-    ClassDeclaration,
-    TypeParameters,
-    TypeParameter,
-    TypeBound,
-    EnumDeclaration,
-    EnumConstants,
-    EnumConstant,
-    EnumBodyDeclarations,
-    InterfaceDeclaration,
-    ClassBody,
-    InterfaceBody,
-    ClassBodyDeclaration,
-    MemberDeclaration,
-    MethodDeclaration,
-    MethodBody,
-    TypeTypeOrVoid,
-    GenericMethodDeclaration,
-    GenericConstructorDeclaration,
-    ConstructorDeclaration,
-    CompactConstructorDeclaration,
-    FieldDeclaration,
-    InterfaceBodyDeclaration,
-    InterfaceMemberDeclaration,
-    ConstDeclaration,
-    ConstantDeclarator,
-    InterfaceMethodDeclaration,
-    InterfaceMethodModifier,
-    GenericInterfaceMethodDeclaration,
-    InterfaceCommonBodyDeclaration,
-    VariableDeclarators,
-    VariableDeclarator,
-    VariableDeclaratorId,
-    VariableInitializer,
-    ArrayInitializer,
-    ClassOrInterfaceType,
-    TypeArgument,
-    QualifiedNameList,
-    FormalParameters,
-    ReceiverParameter,
-    FormalParameterList,
-    FormalParameter,
-    LastFormalParameter,
-    LambdaLVTIList,
-    LambdaLVTIParameter,
-    QualifiedName,
-    Literal,
-    IntegerLiteral,
-    FloatLiteral,
-    AltAnnotationQualifiedName,
-    Annotation,
-    ElementValuePairs,
-    ElementValuePair,
-    ElementValue,
-    ElementValueArrayInitializer,
-    AnnotationTypeDeclaration,
-    AnnotationTypeBody,
-    AnnotationTypeElementDeclaration,
-    AnnotationTypeElementRest,
-    AnnotationMethodOrConstantRest,
-    AnnotationMethodRest,
-    AnnotationConstantRest,
-    DefaultValue,
-    ModuleDeclaration,
-    ModuleBody,
-    ModuleDirective,
-    RequiresModifier,
-    RecordDeclaration,
-    RecordHeader,
-    RecordComponentList,
-    RecordComponent,
-    RecordBody,
-    Block,
-    BlockStatement,
-    LocalVariableDeclaration,
-    Identifier,
-    TypeIdentifier,
-    LocalTypeDeclaration,
-    Statement,
-    CatchClause,
-    CatchType,
-    FinallyBlock,
-    ResourceSpecification,
-    Resources,
-    Resource,
-    SwitchBlockStatementGroup,
-    SwitchLabel,
-    ForControl,
-    ForInit,
-    EnhancedForControl,
-    ParExpression,
-    ExpressionList,
-    MethodCall,
-    Expression,
-    Pattern,
-    LambdaExpression,
-    LambdaParameters,
-    LambdaBody,
-    Primary,
-    SwitchExpression,
-    SwitchLabeledRule,
-    GuardedPattern,
-    SwitchRuleOutcome,
-    ClassType,
-    Creator,
-    CreatedName,
-    InnerCreator,
-    ArrayCreatorRest,
-    ClassCreatorRest,
-    ExplicitGenericInvocation,
-    TypeArgumentsOrDiamond,
-    NonWildcardTypeArgumentsOrDiamond,
-    NonWildcardTypeArguments,
-    TypeList,
-    TypeType,
-    PrimitiveType,
-    TypeArguments,
-    SuperSuffix,
-    ExplicitGenericInvocationSuffix,
-    Arguments,
-
-    Operator,
-    Keyword,
-}
 
 #[derive(Debug, Serialize, Clone)]
 pub struct JavaNode {
@@ -166,11 +39,11 @@ impl INode<JavaNodeType> for JavaNode {
         self.attr = Some(String::from(value));
     }
 
-    fn get_members(&self) -> &LinkedList<JavaNode> {
+    fn get_members(&self) -> &LinkedList<Self> {
         &self.members
     }
 
-    fn get_members_mut(&mut self) -> &mut LinkedList<JavaNode> {
+    fn get_members_mut(&mut self) -> &mut LinkedList<Self> {
         &mut self.members
     }
 

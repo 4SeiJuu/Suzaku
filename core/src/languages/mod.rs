@@ -1,18 +1,17 @@
-mod java;
-mod analyzer;
-mod inode;
-mod stack;
-
-pub use analyzer::{Analyzer, AnalyzerError, Result};
-use java::JavaAnalyzer;
-
-pub const PARSED_RESULT_FOLDER_NAME: &str = "metadata";
-pub const ANALYZED_RESULTS_FOLDER_NAME: &str = "analyzed";
+use suzaku_extension_sdk::{
+    language::parser::{
+        LanguageParserPolicy, 
+    }
+};
+use suzaku_language_extensions::{
+    java::JavaParserPolicy,
+    java9::Java9ParserPolicy
+};
 
 pub struct AnalyzerFactory {}
 
 impl AnalyzerFactory {
-    pub fn get_analyzer() -> Option<impl Analyzer> {
-        Some(JavaAnalyzer::new())
+    pub fn get_analyzer(language: &str) -> Option<impl LanguageParserPolicy> {
+        Some(Java9ParserPolicy::new())
     }
 }

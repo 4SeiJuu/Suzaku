@@ -3,16 +3,18 @@ use antlr_rust::{
     tree::{ErrorNode, ParseTree, ParseTreeListener, TerminalNode},
 };
 
+use suzaku_extension_sdk::{
+    stack::Stack,
+    language::inode::INode,
+};
+
 use super::{
     generated::{
         javaparserlistener::JavaParserListener,
         javaparser::*
     },
-    java_node::{JavaNode, JavaNodeType},
-    super::{
-        inode::INode,
-        stack::Stack
-    },
+    java_node::JavaNode,
+    java_node_type::JavaNodeType
 };
 
 pub struct ParserListener {
@@ -45,11 +47,7 @@ impl ParserListener {
             .unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
         if let Some(expected_node_type) = node_type {
             if top_node.get_node_type() != expected_node_type {
-                panic!(
-                    "[ERROR] invalid node type. expected: {:?}, actual: {:?}",
-                    expected_node_type,
-                    top_node.get_node_type()
-                )
+                panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}", expected_node_type, top_node.get_node_type());
             }
         }
         update_attrs(&mut top_node);

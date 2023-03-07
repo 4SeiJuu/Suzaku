@@ -1,5 +1,5 @@
 [package]
-name = "suzaku-core"
+name = "suzaku-language-extensions"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 suzaku-extension-sdk = { path = "../extension-sdk" }
-suzaku-language-extensions ={ path = "../language-extensions" }
 
+antlr-rust = { version = "0.3.0-beta" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
-glob = { version = "0.3" }
+regex = { version = "1.7" }

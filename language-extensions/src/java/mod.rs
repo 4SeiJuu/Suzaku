@@ -1,40 +1,46 @@
 mod generated;
 mod parser_listener;
 mod java_node;
+mod java_node_type;
 
-use std::path::PathBuf;
 use std::{
     fs,
     fs::File,
     io::Write,
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
 
 use antlr_rust::{
     InputStream,
-    common_token_stream::CommonTokenStream
+    common_token_stream::CommonTokenStream,
 };
-
-use super::{
-    Analyzer, 
-    Result, 
-    AnalyzerError,
-    PARSED_RESULT_FOLDER_NAME,
-};
-use java_node::JavaNode;
 use regex::Regex;
 
+use suzaku_extension_sdk::language::{
+    parser::{
+        LanguageParserPolicy, 
+        Result, 
+        LanguageParserPolicyError,
+    },
+    inode::INode,
+};
+
+use java_node::JavaNode;
+use java_node_type::JavaNodeType;
 use generated::javalexer::JavaLexer;
 use generated::javaparser::*;
 use parser_listener::ParserListener;
-use super::inode::INode;
+use crate::PARSED_RESULT_FOLDER_NAME;
 
 pub const SRC_FILE_EXTENSION: &str = "java";
 
-pub struct JavaAnalyzer {
+pub struct JavaParserPolicy {
 }
 
-impl JavaAnalyzer {
+impl JavaParserPolicy {
     fn parse(&self, src: &PathBuf) -> Option<JavaNode> {
         let content = fs::read_to_string(src).expect("should read context of file");
 
@@ -47,7 +53,7 @@ impl JavaAnalyzer {
         let token_source = CommonTokenStream::new(lexer);
 
         let mut parser_listener: ParserListener = ParserListener::new();
-        let mut file_node = JavaNode::new(java_node::JavaNodeType::File);
+        let mut file_node = JavaNode::new(JavaNodeType::File);
         file_node.set_attr(src.to_str().unwrap());
         parser_listener.stack_mut().push(file_node);
 
@@ -68,9 +74,9 @@ impl JavaAnalyzer {
     }
 }
 
-impl<'consumer> Analyzer for JavaAnalyzer {
+impl<'consumer> LanguageParserPolicy for JavaParserPolicy {
     fn new() -> Self {
-        JavaAnalyzer {}
+        JavaParserPolicy {}
     }
 
     fn execute(&self, src: &PathBuf, output_dir: &PathBuf) -> Result<String> {
@@ -86,17 +92,12 @@ impl<'consumer> Analyzer for JavaAnalyzer {
                 let _ = f.write_all(tree.dump().unwrap().as_bytes());
                 let _ = f.flush();
             }
-
-            // println!("=========================================");
-            // println!("{}", "succeed to parse java file");
-            // println!("=========================================");
-            // println!("Result Json File: {}", output_file_path.to_str().unwrap());
             return Ok(String::from(output_file_path.to_str().unwrap()));
         }
-        Err(AnalyzerError {  })
+        Err(LanguageParserPolicyError {  })
     }
 
-    fn get_src_file_extension(&self) -> &str {
+    fn get_filename_extension(&self) -> &str {
         SRC_FILE_EXTENSION
     }
 }

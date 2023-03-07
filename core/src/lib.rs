@@ -1,30 +1,34 @@
-extern crate antlr_rust;
-extern crate serde_json;
-extern crate glob;
-extern crate regex;
-
 use std::{
     path::{PathBuf, Path},
     error::Error
 };
 
+use suzaku_extension_sdk::language::parser::LanguageParserPolicy;
+
 mod languages;
 
 type GenericError = Box<dyn Error + Send + Sync + 'static>;
 
-pub fn analysis(src_dir: &PathBuf, output_dir: &PathBuf) {
-    use languages::Analyzer;
-
-    match languages::AnalyzerFactory::get_analyzer() {
+pub fn parse(src_dir: &PathBuf, output_dir: &PathBuf) {
+    match languages::AnalyzerFactory::get_analyzer("java9") {
         Some(analyzer) => {
-            let filename_pattern = format!("{}/**/*.{}", src_dir.to_str().unwrap(), analyzer.get_src_file_extension());
-            if let Some(files) = list_files(src_dir, filename_pattern.as_str()) {
-                for f in files {
-                    print!(" * analysing '{}' ... ", f);
-                    if let Ok(output_file_path) = analyzer.execute(&Path::new(f.as_str()).to_path_buf(), output_dir) {
-                        println!("done - Output: {}", output_file_path);
-                    } else {
-                        println!("failed");
+            if src_dir.is_file() {
+                print!(" * analysing '{}' ... ", src_dir.to_str().unwrap());
+                if let Ok(output_file_path) = analyzer.execute(src_dir, output_dir) {
+                    println!("done - Output: {}", output_file_path);
+                } else {
+                    println!("failed");
+                }
+            } else {
+                let filename_pattern = format!("{}/**/*.{}", src_dir.to_str().unwrap(), analyzer.get_filename_extension());
+                if let Some(files) = list_files(src_dir, filename_pattern.as_str()) {
+                    for f in files {
+                        print!(" * analysing '{}' ... ", f);
+                        if let Ok(output_file_path) = analyzer.execute(&Path::new(f.as_str()).to_path_buf(), output_dir) {
+                            println!("done - Output: {}", output_file_path);
+                        } else {
+                            println!("failed");
+                        }
                     }
                 }
             }

@@ -7,34 +7,36 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'cli'",
+            "name": "Debug executable 'suzaku-cli'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=cli",
-                    "--package=cli"
+                    "--bin=suzaku-cli",
+                    "--package=suzaku-cli"
                 ],
                 "filter": {
-                    "name": "cli",
+                    "name": "suzaku-cli",
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": [
+                "analysis"
+            ],
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'cli'",
+            "name": "Debug unit tests in executable 'suzaku-cli'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=cli",
-                    "--package=cli"
+                    "--bin=suzaku-cli",
+                    "--package=suzaku-cli"
                 ],
                 "filter": {
-                    "name": "cli",
+                    "name": "suzaku-cli",
                     "kind": "bin"
                 }
             },
