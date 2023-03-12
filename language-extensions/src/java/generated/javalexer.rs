@@ -1,4 +1,4 @@
-// Generated from ./core/src/languages/java/JavaLexer.g4 by ANTLR 4.8
+// Generated from ./language-extensions/src/java/generated/JavaLexer.g4 by ANTLR 4.8
 #![allow(dead_code)]
 #![allow(nonstandard_style)]
 #![allow(unused_imports)]

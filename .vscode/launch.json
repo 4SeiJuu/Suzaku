@@ -20,7 +20,11 @@
                 }
             },
             "args": [
-                "analysis"
+                "parse",
+                "-s",
+                "./temp/java_src/WallpaperManager.java",
+                "-o",
+                "./temp"
             ],
             "cwd": "${workspaceFolder}"
         },

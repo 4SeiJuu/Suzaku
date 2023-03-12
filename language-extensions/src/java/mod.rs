@@ -43,11 +43,7 @@ pub struct JavaParserPolicy {
 impl JavaParserPolicy {
     fn parse(&self, src: &PathBuf) -> Option<JavaNode> {
         let content = fs::read_to_string(src).expect("should read context of file");
-
-        let re = Regex::new(r"/\*(.|\n)*?\*/").unwrap();
-        let no_comments_content = re.replace_all(content.as_str(), "");
-
-        let data = InputStream::new(no_comments_content.trim());
+        let data = InputStream::new(content.trim());
 
         let lexer = JavaLexer::new(data);
         let token_source = CommonTokenStream::new(lexer);

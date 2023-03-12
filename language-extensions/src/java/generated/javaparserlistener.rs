@@ -1,5 +1,5 @@
 #![allow(nonstandard_style)]
-// Generated from ./core/src/languages/java/JavaParser.g4 by ANTLR 4.8
+// Generated from ./language-extensions/src/java/generated/JavaParser.g4 by ANTLR 4.8
 use antlr_rust::tree::ParseTreeListener;
 use super::javaparser::*;
 
