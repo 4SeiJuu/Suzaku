@@ -17,7 +17,6 @@ use antlr_rust::{
     InputStream,
     common_token_stream::CommonTokenStream,
 };
-use regex::Regex;
 
 use suzaku_extension_sdk::language::{
     parser::{
@@ -37,6 +36,7 @@ use crate::PARSED_RESULT_FOLDER_NAME;
 
 pub const SRC_FILE_EXTENSION: &str = "java";
 
+#[derive(Debug, Clone, Copy)]
 pub struct JavaParserPolicy {
 }
 

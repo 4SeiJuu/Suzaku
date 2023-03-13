@@ -7,10 +7,10 @@ use suzaku_language_extensions::{
     java::JavaParserPolicy,
 };
 
-pub struct AnalyzerFactory {}
+pub struct ExtensionFactory {}
 
-impl AnalyzerFactory {
-    pub fn get_analyzer(language: &str) -> Option<impl LanguageParserPolicy> {
+impl ExtensionFactory {
+    pub fn get_parser_policy(language: &str) -> Option<impl LanguageParserPolicy> {
         Some(JavaParserPolicy::new())
     }
 }
