@@ -13,8 +13,8 @@ use super::{
         javaparserlistener::JavaParserListener,
         javaparser::*
     },
-    java_node::JavaNode,
-    java_node_type::JavaNodeType
+    node::JavaNode,
+    node_type::JavaNodeType
 };
 
 pub struct ParserListener {
@@ -59,22 +59,16 @@ impl ParserListener {
             .stack_mut()
             .pop()
             .unwrap_or_else(|| panic!("[ERROR] invalid status. top node not found."));
-        poped_node.reorganize_children();
-
-        match poped_node.get_node_type() {
-            JavaNodeType::TypeDeclaration
-            | JavaNodeType::MemberDeclaration => {
-                assert_eq!(poped_node.get_members().len(), 1);
-                poped_node = poped_node.get_members_mut().pop_back().unwrap();
-            }
-            _ => (),
-        };
+        
+        let children = poped_node.reorganize();
 
         let parent = self
             .stack_mut()
             .top_mut()
             .unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
-        parent.get_members_mut().push_back(poped_node);
+        for child in children {
+            parent.get_members_mut().push_back(child);
+        }
     }
 }
 
@@ -103,13 +97,6 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
                 }
                 _ => (),
             },
-            "throws" | "return" | "if" | "else" => {
-                if let Some(top_node) = self.stack_mut().top_mut() {
-                    let mut keyword_node = JavaNode::new(JavaNodeType::Keyword);
-                    keyword_node.set_attr(_node.get_text().as_str());
-                    top_node.get_members_mut().push_back(keyword_node);
-                }
-            }
             _ => (),
         }
     }
@@ -199,24 +186,6 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_modifier(&mut self, _ctx: &ModifierContext<'input>) {
         self.update_node_attrs(Some(JavaNodeType::Modifier), |node| {
-            node.set_attr(_ctx.get_text().as_str());
-        });
-        self.add_to_parent_member();
-    }
-    /**
-     * Enter a parse tree produced by {@link JavaParser#classOrInterfaceModifier}.
-     * @param ctx the parse tree
-     */
-    fn enter_classOrInterfaceModifier(&mut self, _ctx: &ClassOrInterfaceModifierContext<'input>) {
-        self.stack_mut()
-            .push(JavaNode::new(JavaNodeType::ClassOrInterfaceModifier));
-    }
-    /**
-     * Exit a parse tree produced by {@link JavaParser#classOrInterfaceModifier}.
-     * @param ctx the parse tree
-     */
-    fn exit_classOrInterfaceModifier(&mut self, _ctx: &ClassOrInterfaceModifierContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ClassOrInterfaceModifier), |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();

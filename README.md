@@ -37,10 +37,10 @@ $HOME/.m2/repository/org/antlr/antlr4
 ## Generates Lexer and Parser
 ### Lexer
 ```shell
-$ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./core/src/languages/java/generated/JavaLexer.g4
+$ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./language-extensions/src/java/generated/JavaLexer.g4
 ```
 
 ### Parser
 ```shell
-$ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./core/src/languages/java/generated/JavaParser.g4
+$ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./language-extensions/src/java/generated/JavaParser.g4
 ```

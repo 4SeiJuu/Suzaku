@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
+#[derive(Debug)]
 pub struct LanguageParserPolicyError {}
-pub type Result<String> = std::result::Result<String, LanguageParserPolicyError>;
+pub type LanguageParseResult<T> = std::result::Result<T, LanguageParserPolicyError>;
 
 pub trait LanguageParserPolicy {
     fn new() -> Self;
-    fn execute(&self, src: &PathBuf, output_dir: &PathBuf) -> Result<String>;
-    fn get_filename_extension(&self) -> &str;
+    fn execute(&self, src: &PathBuf, output: &PathBuf) -> LanguageParseResult<PathBuf>;
+    fn get_filename_extensions(&self) -> Option<Vec<String>>;
 }

@@ -6,7 +6,7 @@ use std::{
         Path, 
         PathBuf,
     }, 
-    fs
+    fs,
 };
 
 use clap::{
@@ -75,38 +75,54 @@ fn main() {
                     format!("{}: {}", e, output)).exit();
             }
 
-            suzaku_core::parse(&src_dir.unwrap(), &output_dir.unwrap());
+            match suzaku_core::parse(&src_dir.unwrap(), &output_dir.unwrap()) {
+                Ok(metadata_files_folder) => println!("Parsed results already stored at: {}", metadata_files_folder.to_str().unwrap()),
+                Err(err) => panic!("[ERROR] {:?}", err)
+            }
         },
         Some(Commands::Analysis { src, metadata, output }) => {
-            let output_dir = fs::canonicalize(Path::new(output));
-            if let Err(e) = output_dir {
-                let mut cmd = Cli::command();
-                cmd.error(ErrorKind::InvalidValue, 
-                    format!("{}: {}", e, output)).exit();
-            }
-
-            if let Some(src) = src {
-                let src_dir = fs::canonicalize(Path::new(src));
-                if let Err(e) = src_dir {
+            match fs::canonicalize(Path::new(output)) {
+                Ok(output_dir) => {
+                    if let Some(src) = src {
+                        let src_dir = fs::canonicalize(Path::new(src));
+                        if let Err(e) = src_dir {
+                            let mut cmd = Cli::command();
+                            cmd.error(ErrorKind::InvalidValue, 
+                                format!("{}: {}", e, src)).exit();
+                        }
+        
+                        match suzaku_core::parse(&src_dir.unwrap(), &output_dir) {
+                            Ok(metadata_dir) => {
+                                match suzaku_core::analysis(&metadata_dir, &output_dir) {
+                                    Ok(vertex_files_folder) => println!("Analysized results already stored at: {}", vertex_files_folder.to_str().unwrap()),
+                                    Err(err) => panic!("[ERROR] {:?}", err)
+                                }
+                            }
+                            Err(err) => panic!("ERROR: {:?}", err)
+                        }
+                    } else if let Some(metadata) = metadata {
+                        let metadata_dir = fs::canonicalize(Path::new(metadata));
+                        if let Err(e) = metadata_dir {
+                            let mut cmd = Cli::command();
+                            cmd.error(ErrorKind::InvalidValue, 
+                                format!("{}: {}", e, metadata)).exit();
+                        }
+        
+                        match suzaku_core::analysis(&metadata_dir.unwrap(), &output_dir) {
+                            Ok(vertex_files_folder) => println!("Analysized results already stored at: {}", vertex_files_folder.to_str().unwrap()),
+                            Err(err) => panic!("[ERROR] {:?}", err)
+                        }
+                    } else {
+                        let mut cmd = Cli::command();
+                        cmd.error(ErrorKind::MissingRequiredArgument, 
+                            "Missing required arguments").exit();
+                    }
+                },
+                Err(e) => {
                     let mut cmd = Cli::command();
                     cmd.error(ErrorKind::InvalidValue, 
-                        format!("{}: {}", e, src)).exit();
+                        format!("{}: {}", e, output)).exit();
                 }
-
-                // TODO: run analysing with source code
-            } else if let Some(metadata) = metadata {
-                let metadata_dir = fs::canonicalize(Path::new(metadata));
-                if let Err(e) = metadata_dir {
-                    let mut cmd = Cli::command();
-                    cmd.error(ErrorKind::InvalidValue, 
-                        format!("{}: {}", e, metadata)).exit();
-                }
-
-                // TODO: run analysing with metadata
-            } else {
-                let mut cmd = Cli::command();
-                cmd.error(ErrorKind::MissingRequiredArgument, 
-                    "Missing required arguments").exit();
             }
         },
         None => {

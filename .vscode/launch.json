@@ -20,9 +20,9 @@
                 }
             },
             "args": [
-                "parse",
+                "analysis",
                 "-s",
-                "./temp/java_src/WallpaperManager.java",
+                "./temp/java_src",
                 "-o",
                 "./temp"
             ],

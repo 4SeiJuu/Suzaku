@@ -55,16 +55,6 @@ fn enter_modifier(&mut self, _ctx: &ModifierContext<'input>) { }
  */
 fn exit_modifier(&mut self, _ctx: &ModifierContext<'input>) { }
 /**
- * Enter a parse tree produced by {@link JavaParser#classOrInterfaceModifier}.
- * @param ctx the parse tree
- */
-fn enter_classOrInterfaceModifier(&mut self, _ctx: &ClassOrInterfaceModifierContext<'input>) { }
-/**
- * Exit a parse tree produced by {@link JavaParser#classOrInterfaceModifier}.
- * @param ctx the parse tree
- */
-fn exit_classOrInterfaceModifier(&mut self, _ctx: &ClassOrInterfaceModifierContext<'input>) { }
-/**
  * Enter a parse tree produced by {@link JavaParser#variableModifier}.
  * @param ctx the parse tree
  */

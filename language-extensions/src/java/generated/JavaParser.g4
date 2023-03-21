@@ -48,21 +48,17 @@ importDeclaration
     ;
 
 typeDeclaration
-    : classOrInterfaceModifier*
+    : annotation*
+      modifier*
       (classDeclaration | enumDeclaration | interfaceDeclaration | annotationTypeDeclaration | recordDeclaration)
     | ';'
     ;
 
 modifier
-    : classOrInterfaceModifier
-    | NATIVE
+    : NATIVE
     | SYNCHRONIZED
     | TRANSIENT
     | VOLATILE
-    ;
-
-classOrInterfaceModifier
-    : annotation
     | PUBLIC
     | PROTECTED
     | PRIVATE
@@ -130,7 +126,7 @@ interfaceBody
 classBodyDeclaration
     : ';'
     | STATIC? block
-    | modifier* memberDeclaration
+    | annotation* modifier* memberDeclaration
     ;
 
 memberDeclaration
@@ -180,7 +176,7 @@ constructorDeclaration
     ;
 
 compactConstructorDeclaration
-    : modifier* identifier constructorBody=block
+    : annotation* modifier* identifier constructorBody=block
     ;
 
 fieldDeclaration
@@ -188,7 +184,7 @@ fieldDeclaration
     ;
 
 interfaceBodyDeclaration
-    : modifier* interfaceMemberDeclaration
+    : annotation* modifier* interfaceMemberDeclaration
     | ';'
     ;
 
@@ -366,7 +362,7 @@ annotationTypeBody
     ;
 
 annotationTypeElementDeclaration
-    : modifier* annotationTypeElementRest
+    : annotation* modifier* annotationTypeElementRest
     | ';' // this is not allowed by the grammar, but apparently allowed by the actual compiler
     ;
 
@@ -496,7 +492,8 @@ typeIdentifier  // Identifiers that are not restricted for type declarations
     ;
 
 localTypeDeclaration
-    : classOrInterfaceModifier*
+    : annotation*
+      modifier*
       (classDeclaration | interfaceDeclaration | recordDeclaration)
     ;
 
