@@ -143,6 +143,7 @@ impl JavaNode {
             JavaNodeType::ImportDeclaration | JavaNodeType::PackageDeclaration => Self::reorganize_children_of_import_declaration_node(candidate_children),
             JavaNodeType::TypeDeclaration | JavaNodeType::ClassBodyDeclaration => Self::reorganize_children_of_type_declaration_node(candidate_children),
             JavaNodeType::ExpressionList => Self::reorganize_children_of_expression_list_node(candidate_children),
+            JavaNodeType::FormalParameters => Self::reorganize_children_of_formal_parameters_node(candidate_children),
             _ => Some(candidate_children),
         }
     }
@@ -189,6 +190,28 @@ impl JavaNode {
                 class_declaration.get_members_mut().push_front(child);
             }
             children.push_back(class_declaration);
+        }
+
+        Some(children)
+    }
+
+    fn reorganize_children_of_formal_parameters_node<'a>(children: &'a mut LinkedList<JavaNode>) -> Option<&'a mut LinkedList<JavaNode>> {
+        if children.len() == 0 {
+            return Some(children);
+        }
+
+        let mut cloned_children = children.clone();
+        children.clear();
+
+        while let Some(mut child) = cloned_children.pop_front() {
+            match child.get_members().front().unwrap().get_node_type() {
+                JavaNodeType::FormalParameter => children.append(child.get_members_mut()),
+                _ => {
+                    let mut fp_node = JavaNode::new(JavaNodeType::FormalParameter);
+                    fp_node.get_members_mut().append(child.get_members_mut());
+                    children.push_back(fp_node);
+                }
+            }
         }
 
         Some(children)

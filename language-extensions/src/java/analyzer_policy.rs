@@ -21,8 +21,8 @@ use suzaku_extension_sdk::{
             VertexRelationship
         }
     },
-    ANALYZED_RESULTS_FOLDER_NAME,
-    VERTEX_FILE_EXTENSION,
+    stack::Stack,
+    VERTEX_FILE_EXTENSION, 
 };
 
 use crate::java::node_type::JavaNodeType;
@@ -32,17 +32,26 @@ use super::{
     node::JavaNode
 };
 
-pub struct JavaAnalysisListener {}
+pub struct JavaAnalysisListener {
+    // TODO: the JavaVertex should be stored as ref in vertexes.
+    vertexes: HashMap<VertexRelationship, Vec<JavaVertex>>,
+    stack: Stack<JavaVertex>
+}
 
 impl JavaAnalysisListener {
-    fn listen(&self, node: &JavaNode) {
+    pub fn results(&self) -> &HashMap<VertexRelationship, Vec<JavaVertex>> {
+        &self.vertexes
+    }
+
+    fn enter(&mut self, node: &JavaNode) {
         match node.get_node_type() {
             JavaNodeType::PackageDeclaration => self.analysis_package_declaration(node),
-            JavaNodeType::ImportDeclaration => {},
-            JavaNodeType::ClassDeclaration => {},
-            JavaNodeType::InterfaceDeclaration => {}
-            JavaNodeType::FieldDeclaration => {},
-            JavaNodeType::MethodDeclaration => {},
+            JavaNodeType::ImportDeclaration => self.analysis_import_declaration(node),
+            JavaNodeType::ClassDeclaration => self.analysis_class_declaration(node),
+            JavaNodeType::InterfaceDeclaration => {},
+            JavaNodeType::EnumDeclaration => {},
+            JavaNodeType::FieldDeclaration => self.analysis_field_declaration(node),
+            JavaNodeType::MethodDeclaration => self.analysis_method_declaration(node),
             JavaNodeType::AnnotationTypeDeclaration => {},
             JavaNodeType::ConstructorDeclaration => {},
             JavaNodeType::VariableDeclarators => {},
@@ -56,44 +65,253 @@ impl JavaAnalysisListener {
             _ => ()
         }
     }
-    
-    fn analysis_package_declaration(&self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::PackageDeclaration);
 
+    fn exit(&mut self, node: &JavaNode) {
+        let top = self.stack.top();
+        if top.is_none() {
+            return;
+        }
+
+        let jv = top.unwrap().get_type();
+        if jv.is_none() {
+            panic!("[ERROR] invalid top node of stack. vertex type not found: {:?}", top);
+        }
+
+        match node.get_node_type() {
+            JavaNodeType::ClassDeclaration => if let VertexType::Class(_, _, _, _, _) = jv.unwrap() {
+                self.stack.pop();
+            },
+            JavaNodeType::InterfaceDeclaration => {},
+            JavaNodeType::EnumDeclaration => {},
+            JavaNodeType::MethodDeclaration => {},
+            JavaNodeType::ConstructorDeclaration => {},
+            JavaNodeType::Creator => {},
+            JavaNodeType::MethodCall => {},
+            _ => () // println!("[WARNING] invalid top node of stack. expected: {:?}, actual: {:?}", node.get_node_type(), jv)
+        }
+    }
+    
+    fn analysis_package_declaration(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::PackageDeclaration);
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::QualifiedName => {},
+                JavaNodeType::QualifiedName => self.add_vertex(VertexRelationship::Package, 
+                    JavaVertex::new(VertexType::Package(String::from(member.get_attr().as_ref().unwrap().as_str())).as_ref())),
                 _ => ()
             }
         }
     }
-}
 
-pub struct JavaAnalysisPolicy {
-    vertexes: HashMap<VertexRelationship, Vec<JavaVertex>>
-}
-
-impl<'a> JavaAnalysisPolicy {
-    pub fn analysis(&mut self, node: &JavaNode, listener: &JavaAnalysisListener) -> LanguageAnalysisResult<JavaVertex> {
-        assert_eq!(node.get_node_type(), JavaNodeType::File);
-        JavaAnalysisPolicy::tree_walker(&node, listener);
-
-        Err(LanguageAnalysisPolicyError {  })
+    fn analysis_import_declaration(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::ImportDeclaration);
+        for member in node.get_members() {
+            match member.get_node_type() {
+                JavaNodeType::QualifiedName => if let Some((pkg, ty)) = member.get_attr().as_ref().unwrap().as_str().rsplit_once('.') {
+                    self.add_vertex(VertexRelationship::Imports, 
+                        JavaVertex::new(VertexType::Import(String::from(pkg), String::from(ty)).as_ref()));
+                },
+                _ => ()
+            }
+        }
     }
 
-    fn tree_walker(node: &JavaNode, listener: &JavaAnalysisListener) {
-        listener.listen(&node);
+    fn analysis_class_declaration(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::ClassDeclaration);
+
+        let mut annotations: Vec<String> = Vec::new();
+        let mut modifiers: Vec<&str> = Vec::new();
+        let mut ident: Option<&str> = None;
+        let mut extends: Option<String> = None;
+        let mut implements: Vec<String> = Vec::new();
+
+        for member in node.get_members() {
+            match member.get_node_type() {
+                JavaNodeType::Annotation => if let Some(attr) = member.get_attr() {
+                    annotations.push(attr.to_string());
+                },
+                JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
+                    modifiers.push(attr.as_str());
+                },
+                JavaNodeType::Identifier => if let Some(attr) = member.get_attr() {
+                    ident = Some(attr.as_str());
+                },
+                JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
+                    extends = Some(attr.to_string());
+                },
+                JavaNodeType::TypeList => if let Some(attr) = member.get_attr() {
+                    implements.push(attr.to_string())
+                },
+                _ => ()
+            }
+        }
+
+        if let Some(package_name) = self.get_package_name() {
+            let vertex_type = VertexType::Class(annotations, package_name.to_string(), ident.unwrap().to_string(), extends, implements.clone());
+
+            // TODO: after JavaVertex changed to ref in vertexes, following code should be changed.
+            let jv = JavaVertex::new(vertex_type.as_ref());
+            self.add_vertex(VertexRelationship::Class, jv.clone());
+            self.stack.push(jv);
+        }
+    }
+
+    fn analysis_field_declaration(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::FieldDeclaration);
+
+        let mut modifiers: Vec<String> = Vec::new();
+        let mut ty: Option<String> = None;
+        let mut variable_id: Option<String> = None;
+        let mut variable_init: Option<String> = None;
+
+        for member in node.get_members() {
+            match member.get_node_type() {
+                JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
+                    modifiers.push(attr.to_string());
+                },
+                JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
+                    ty = Some(attr.to_string());
+                },
+                JavaNodeType::VariableDeclarators => {
+                    if member.get_members().len() == 0 {
+                        variable_id = Some(member.get_attr().as_ref().unwrap().to_string());
+                        continue;
+                    }
+
+                    for child in member.get_members() {
+                        match child.get_node_type() {
+                            JavaNodeType::VariableDeclaratorId => variable_id = Some(child.get_attr().as_ref().unwrap().to_string()),
+                            JavaNodeType::VariableInitializer => if let Some(attr) = child.get_attr() {
+                                variable_init = Some(attr.to_string());
+                            }
+                            _ => () // println!("[WARNING] not produced node: {}", child.dump().unwrap())
+                        }
+                    }
+                },
+                _ => ()
+            }
+        }
+
+        if let Some(package_name) = self.get_package_name() {
+            if let Some(type_name) = self.get_type_name() {
+                let vertex_type = VertexType::Field(package_name.to_string(), type_name.to_string(), modifiers.clone(), ty, variable_id, variable_init);
+                self.add_vertex(VertexRelationship::Fields, JavaVertex::new(vertex_type.as_ref()));
+            }
+        }
+    }
+
+    fn analysis_method_declaration(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::MethodDeclaration);
+
+        let mut annotation: Option<String> = None;
+        let mut modifiers: Vec<String> = Vec::new();
+        let mut ret_type: Option<&str> = None;
+        let mut name: Option<&str> = None;
+        let mut params: Vec<(Option<String>, String, String)> = Vec::new();
+
+        for member in node.get_members() {
+            match member.get_node_type() {
+                JavaNodeType::Annotation => if let Some(attr) = member.get_attr() {
+                    annotation = Some(attr.as_str().to_string());
+                },
+                JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
+                    modifiers.push(attr.to_string());
+                },
+                JavaNodeType::TypeTypeOrVoid => if let Some(attr) = member.get_attr() {
+                    ret_type = Some(attr.as_str());
+                },
+                JavaNodeType::Identifier => if let Some(attr) = member.get_attr() {
+                    name = Some(attr.as_str());
+                },
+                JavaNodeType::FormalParameters => for child in member.get_members() {
+                    match child.get_node_type() {
+                        JavaNodeType::FormalParameter => {
+                            let mut modifier: Option<String> = None;
+                            let mut ty: Option<String> = None;
+                            let mut ident: Option<String> = None;
+                            for item in child.get_members() {
+                                match item.get_node_type() {
+                                    JavaNodeType::VariableModifier => modifier = Some(item.get_attr().as_ref().unwrap().to_string()),
+                                    JavaNodeType::TypeType => ty = Some(item.get_attr().as_ref().unwrap().to_string()),
+                                    JavaNodeType::VariableDeclaratorId => ident = Some(item.get_attr().as_ref().unwrap().to_string()),
+                                    _ => ()
+                                };
+                            }
+                            params.push((modifier, ty.unwrap().to_string(), ident.unwrap().to_string()));
+                        },
+                        _ => ()
+                    }
+                },
+                _ => ()
+            }
+        }
+
+        if let Some(package_name) = self.get_package_name() {
+            if let Some(type_name) = self.get_type_name() {
+                let vertex_type = VertexType::Method(package_name.to_string(), type_name.to_string(), annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params);
+                self.add_vertex(VertexRelationship::Methods, JavaVertex::new(vertex_type.as_ref()));
+            }
+        }
+    }
+
+    fn add_vertex(&mut self, relationship: VertexRelationship, vertex: JavaVertex) {
+        match self.vertexes.get_mut(&relationship) {
+            Some(vertexes) => _ = vertexes.push(vertex),
+            None => _ = self.vertexes.insert(relationship, vec![vertex]),
+        }
+    }
+
+    fn add_vertext_to_parent(&mut self, relationship: VertexRelationship, vertex: JavaVertex) {
+        if let Some(top) = self.stack.top_mut() {
+            // match top.
+        }
+    }
+
+    fn get_package_name(&self) -> Option<&String> {
+        if let Some(packages) = self.vertexes.get(VertexRelationship::Package.as_ref()) {
+            if let VertexType::Package(package_name) = packages.get(0).unwrap().get_type().unwrap() {
+                return Some(package_name)
+            }
+        }
+        panic!("[ERROR]: package not found");
+    }
+
+    fn get_type_name(&self) -> Option<&String> {
+        if let Some(jv) = self.stack.top() {
+            if let VertexType::Class(_, _, name, _, _) = jv.get_type().unwrap() {
+                return Some(name);
+            }
+        }
+        panic!("[ERROR] type name not found");
+    }
+}
+
+pub struct JavaAnalysisPolicy {}
+
+impl<'a> JavaAnalysisPolicy {
+    pub fn analysis(&mut self, node: &JavaNode) -> LanguageAnalysisResult<HashMap<VertexRelationship, Vec<JavaVertex>>> {
+        assert_eq!(node.get_node_type(), JavaNodeType::File);
+
+        let mut listener = JavaAnalysisListener{
+            vertexes: HashMap::new(),
+            stack: Stack::new(),
+        };
+        JavaAnalysisPolicy::tree_walker(&node, &mut listener);
+
+        Ok(listener.results().clone())
+    }
+
+    fn tree_walker(node: &JavaNode, listener: &mut JavaAnalysisListener) {
+        listener.enter(&node);
         for child in node.get_members() {
             JavaAnalysisPolicy::tree_walker(child, listener);
         }
+        listener.exit(&node);
     }
 }
 
 impl LanguageAnalysisPolicy for JavaAnalysisPolicy {
     fn new() -> Self {
-        JavaAnalysisPolicy {
-            vertexes: HashMap::new()
-        }
+        JavaAnalysisPolicy {}
     }
 
     fn execute(&mut self, metadata: &PathBuf, output: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
@@ -101,9 +319,7 @@ impl LanguageAnalysisPolicy for JavaAnalysisPolicy {
             let context_str = fs::read_to_string(metadata).expect("should read context of file");
             let context: JavaNode = serde_json::from_str(&context_str).expect("failed to convert metadata to hashmap");
 
-            let listener = JavaAnalysisListener{};
-
-            if let Ok(jv) = self.analysis(&context, &listener) {
+            if let Ok(jv) = self.analysis(&context) {
                 if !output.exists() {
                     _ = fs::create_dir_all(&output);
                 }
@@ -119,267 +335,3 @@ impl LanguageAnalysisPolicy for JavaAnalysisPolicy {
         Err(LanguageAnalysisPolicyError {})
     }
 }
-
-
-
-// fn analysis_package_declaration(node: &'a JavaNode) -> Option<(&VertexRelationship, &[JavaVertex<'a>])> {
-    //     assert_eq!(node.get_node_type(), JavaNodeType::PackageDeclaration);
-
-    //     for member in node.get_members() {
-    //         match member.get_node_type() {
-    //             JavaNodeType::QualifiedName => {
-    //                 let vertex_type: &'a VertexType<'a> = VertexType::<'a>::Package(member.get_attr().as_ref().unwrap()).as_ref();
-    //                 return Some((VertexRelationship::Package.as_ref(), &[JavaVertex::<'a>::new(vertex_type)]))
-    //             },
-    //             _ => return None
-    //         }
-    //     }
-    //     None
-    // }
-    
-
-
-    // pub fn analysis(&mut self, context: JavaNode) -> LanguageAnalysisResult<JavaVertex<'a>> {
-    //     assert_eq!(context.get_node_type(), JavaNodeType::File);
-
-    //     for member in context.get_members() {
-    //         match member.get_node_type() {
-    //             JavaNodeType::PackageDeclaration => self.analysis_package(member),
-    //             JavaNodeType::ImportDeclaration => self.analysis_import(member),
-    //             JavaNodeType::ClassDeclaration => self.analysis_class(member),
-    //             JavaNodeType::FieldDeclaration => self.analysis_field(member),
-    //             JavaNodeType::MethodDeclaration => self.analysis_method(member),
-    //             _ => ()
-    //         }
-    //     }
-    //     Ok(JavaVertex::new(&VertexType::Record))
-    // }
-
-    // fn analysis_package(&mut self, package_node: &JavaNode) {
-    //     assert_eq!(package_node.get_node_type(), JavaNodeType::PackageDeclaration);
-
-    //     for member in package_node.get_members() {
-    //         if member.get_node_type() == JavaNodeType::QualifiedName {
-    //             println!("[PACKAGE] {:?}", member.get_attr());
-    //         }
-    //     }
-    // }
-
-    // fn analysis_import(&mut self, import_node: &JavaNode) {
-    //     assert_eq!(import_node.get_node_type(), JavaNodeType::ImportDeclaration);
-
-    //     for member in import_node.get_members() {
-    //         if member.get_node_type() == JavaNodeType::QualifiedName {
-    //             println!("[IMPORT] {:?}", member.get_attr());
-    //         }
-    //     }
-    // }
-
-    // fn analysis_class(&mut self, class_node: &JavaNode) {
-    //     assert_eq!(class_node.get_node_type(), JavaNodeType::ClassDeclaration);
-
-    //     let mut annotations: Vec<String> = Vec::new();
-    //     let mut modifiers: Vec<String> = Vec::new();
-    //     let mut ident: Option<String> = None;
-    //     let mut extends: Option<String> = None;
-    //     let mut implements: Vec<String> = Vec::new();
-
-    //     for member in class_node.get_members() {
-    //         match member.get_node_type() {
-    //             JavaNodeType::Annotation => if let Some(attr) = member.get_attr() {
-    //                 annotations.push(attr.clone());
-    //             },
-    //             JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
-    //                 modifiers.push(attr.clone());
-    //             },
-    //             JavaNodeType::Identifier => if let Some(attr) = member.get_attr() {
-    //                 ident = Some(attr.clone());
-    //             },
-    //             JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
-    //                 extends = Some(attr.clone());
-    //             },
-    //             JavaNodeType::TypeList => if let Some(attr) = member.get_attr() {
-    //                 implements.push(attr.clone())
-    //             }
-    //             JavaNodeType::ClassBody => self.analysis_class_body(member),
-    //             _ => ()
-    //         }
-    //     }
-
-    //     for anno in annotations {
-    //         println!("[ANNOTATION] {}", anno);
-    //     }
-
-    //     println!("[CLASS] {} class {} extends {:?} implements {}", modifiers.join(" ").as_str(), ident.unwrap(), extends, implements.join(", "));
-    // }
-
-    // fn analysis_class_body(&mut self, class_body_node: &JavaNode) {
-    //     assert_eq!(class_body_node.get_node_type(), JavaNodeType::ClassBody);
-
-    //     for member in class_body_node.get_members() {
-    //         match member.get_node_type() {
-    //             JavaNodeType::FieldDeclaration => self.analysis_field(member),
-    //             JavaNodeType::AnnotationTypeDeclaration => self.analysis_annotation_declaration(member),
-    //             JavaNodeType::ClassDeclaration => self.analysis_class(member),
-    //             JavaNodeType::MethodDeclaration => self.analysis_method(member),
-    //             JavaNodeType::ConstructorDeclaration => self.analysis_ctor(member),
-    //             _ => ()
-    //         }
-    //     }
-    // }
-
-    // fn analysis_field(&mut self, field_node: &JavaNode) {
-    //     assert_eq!(field_node.get_node_type(), JavaNodeType::FieldDeclaration);
-
-    //     let mut modifiers: Vec<String> = Vec::new();
-    //     let mut ty: Option<&String> = None;
-    //     let mut variable_id: Option<&String> = None;
-    //     let mut variable_init: Option<&String> = None;
-
-    //     for member in field_node.get_members() {
-    //         match member.get_node_type() {
-    //             JavaNodeType::Modifier => modifiers.push(member.get_attr().as_ref().unwrap().clone()),
-    //             JavaNodeType::TypeType => ty = Some(member.get_attr().as_ref().unwrap()),
-    //             JavaNodeType::VariableDeclarators => {
-    //                 if member.get_members().len() == 0 {
-    //                     variable_id = Some(member.get_attr().as_ref().unwrap());
-    //                     continue;
-    //                 }
-
-    //                 for child in member.get_members() {
-    //                     match child.get_node_type() {
-    //                         JavaNodeType::VariableDeclaratorId => variable_id = Some(child.get_attr().as_ref().unwrap()),
-    //                         JavaNodeType::VariableInitializer => if child.get_members().len() == 0 {
-    //                             variable_init = Some(child.get_attr().as_ref().unwrap())
-    //                         } else {
-    //                             // creator & method call
-    //                         },
-    //                         _ => () // println!("[WARNING] not produced node: {}", child.dump().unwrap())
-    //                     }
-    //                 }
-    //             },
-    //             _ => ()
-    //         }
-    //     }
-
-    //     println!("[FIELD] modifiers: {}, type: {}, ident: {}, initializer: {:?}", modifiers.join(" "), ty.unwrap(), variable_id.unwrap(), variable_init);
-    // }
-
-    // fn analysis_ctor(&mut self, ctor: &JavaNode) {
-    //     assert_eq!(ctor.get_node_type(), JavaNodeType::ConstructorDeclaration);
-    // }
-
-    // fn analysis_method(&mut self, method_node: &JavaNode) {
-    //     assert_eq!(method_node.get_node_type(), JavaNodeType::MethodDeclaration);
-
-    //     let mut annotation: Option<&String> = None;
-    //     let mut modifiers: Vec<String> = Vec::new();
-    //     let mut ret_type: Option<&String> = None;
-    //     let mut name: Option<&String> = None;
-    //     let mut params: Vec<(&String, &String)> = Vec::new();
-
-    //     for member in method_node.get_members() {
-    //         match member.get_node_type() {
-    //             JavaNodeType::Annotation => annotation = Some(member.get_attr().as_ref().unwrap()),
-    //             JavaNodeType::Modifier => modifiers.push(member.get_attr().as_ref().unwrap().clone()),
-    //             JavaNodeType::TypeTypeOrVoid => ret_type = Some(member.get_attr().as_ref().unwrap()),
-    //             JavaNodeType::Identifier => name = Some(member.get_attr().as_ref().unwrap()),
-    //             JavaNodeType::FormalParameters => {
-    //                 for child in member.get_members() {
-    //                     match child.get_node_type() {
-    //                         JavaNodeType::FormalParameterList => {
-    //                             for param in child.get_members() {
-    //                                 match param.get_node_type() {
-    //                                     JavaNodeType::FormalParameter => {
-    //                                         let mut ty: Option<&String> = None;
-    //                                         let mut ident: Option<&String> = None;
-    //                                         for part in param.get_members() {
-    //                                             match part.get_node_type() {
-    //                                                 JavaNodeType::TypeType => ty = Some(part.get_attr().as_ref().unwrap()),
-    //                                                 JavaNodeType::VariableDeclaratorId => ident = Some(part.get_attr().as_ref().unwrap()),
-    //                                                 _ => () // println!("[WARNING] not produced node: {}", part.dump().unwrap())
-    //                                             }
-    //                                         }
-    //                                         params.push((ty.unwrap(), ident.unwrap()))
-    //                                     },
-    //                                     _ => ()
-    //                                 }
-    //                             }
-    //                         },
-    //                         _ => ()
-    //                     }
-    //                 }
-    //             },
-    //             _ => ()
-    //         }
-    //     }
-
-    //     let mut param_strs: Vec<String> = Vec::new();
-    //     if params.len() == 0 {
-    //         param_strs.push(String::from("()"));
-    //     } else {
-    //         for p in params {
-    //             param_strs.push(format!("{} {}", p.0, p.1));
-    //         }
-    //     }
-    //     println!("[METHOD] annotation: {:?}, modifiers: {}, return type: {}, ident: {}, params: {}", 
-    //         annotation, modifiers.join(" "), ret_type.unwrap(), name.unwrap(), param_strs.join(", "));
-    // }
-
-    // fn analysis_annotation_declaration(&mut self, annotation_declaration_node: &JavaNode) {
-    //     assert_eq!(annotation_declaration_node.get_node_type(), JavaNodeType::AnnotationTypeDeclaration);
-
-    //     for annotation in annotation_declaration_node.get_members() {
-    //         let mut name: Option<&String> = None;
-    //         let mut ele_value: Option<&String> = None;
-    //         let mut ele_value_pairs: Vec<(String, String)> = Vec::new();
-    
-    //         let mut analysis_element_value_pair = |node: &JavaNode| {
-    //             assert_eq!(node.get_node_type(), JavaNodeType::ElementValuePair);
-    
-    //             let mut ident: Option<&String> = None;
-    //             let mut value: Option<&String> = None;
-    //             for item in node.get_members() {
-    //                 match item.get_node_type() {
-    //                     JavaNodeType::Identifier => ident = Some(item.get_attr().as_ref().unwrap()),
-    //                     JavaNodeType::ElementValue => value = Some(item.get_attr().as_ref().unwrap()),
-    //                     _ => ()
-    //                 }
-    //             }
-    
-    //             if ident.is_none() || value.is_none() {
-    //                 panic!("[ERROR] ident and value should not be none for ElementValue: {}", node.dump().unwrap());
-    //             }
-    
-    //             ele_value_pairs.push((ident.unwrap().clone(), value.unwrap().clone()));
-    //         };
-
-    //         match annotation.get_node_type() {
-    //             JavaNodeType::Annotation => {
-    //                 for member in annotation.get_members() {
-    //                     match member.get_node_type() {
-    //                         JavaNodeType::QualifiedName => name = Some(member.get_attr().as_ref().unwrap()),
-    //                         JavaNodeType::ElementValue => ele_value = Some(member.get_attr().as_ref().unwrap()),
-    //                         JavaNodeType::ElementValuePair => analysis_element_value_pair(member),
-    //                         JavaNodeType::ElementValuePairs => for pair in member.get_members() {
-    //                             analysis_element_value_pair(pair);
-    //                         },
-    //                         _ => ()
-    //                     }
-    //                 }
-    //             },
-    //             _ => ()
-    //         }
-
-    //         print!("[ANNOTATION] name: {:?}, ", name);
-    //         if let Some(value) = ele_value {
-    //             println!(" element value: {}", value);
-    //         } else {
-    //             print!(" element value pairs: [");
-    //             for (ident, value) in ele_value_pairs {
-    //                 print!(" (ident: {}, value: {}), ", ident, value);
-    //             }
-    //             println!("]");
-    //         }
-    //     }
-    // }

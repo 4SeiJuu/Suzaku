@@ -1,4 +1,4 @@
-use std::collections::{HashMap, LinkedList};
+use std::collections::HashMap;
 use serde::Serialize;
 
 use suzaku_extension_sdk::{
@@ -11,7 +11,7 @@ use suzaku_extension_sdk::{
     },
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct JavaVertex {
     ty: Option<VertexType>,
     members: HashMap<VertexRelationship, Vec<VertexType>>
@@ -34,8 +34,11 @@ impl Vertex for JavaVertex {
         }
     }
 
-    fn get_type(&self) -> &Option<VertexType> {
-        &self.ty
+    fn get_type(&self) -> Option<&VertexType> {
+        match self.ty.as_ref() {
+            Some(value) => Some(&value),
+            None => None
+        }
     }
 
     fn get_member_by_relationship(&self, relationship: VertexRelationship) -> Option<&Vec<VertexType>> {
