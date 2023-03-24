@@ -24,8 +24,8 @@ pub enum VertexType {
     Package(String),
     // package name, type name
     Import(String, String),
-    // modifiers, package, name, extends, implements
-    Class(Vec<String>, String, String, Option<String>, Vec<String>),
+    // modifiers, package, parent, name, extends, implements
+    Class(Vec<String>, String, Option<String>, String, Option<String>, Vec<String>),
     // modifiers, package, name
     Interface(Vec<String>, String, String),
     // package, name, item

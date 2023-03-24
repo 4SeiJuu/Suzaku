@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf, 
-    collections::HashMap, 
+    collections::{HashMap, LinkedList}, 
     fs::{
         self, 
         File
@@ -33,7 +33,6 @@ use super::{
 };
 
 pub struct JavaAnalysisListener {
-    // TODO: the JavaVertex should be stored as ref in vertexes.
     vertexes: HashMap<VertexRelationship, Vec<JavaVertex>>,
     stack: Stack<JavaVertex>
 }
@@ -93,7 +92,7 @@ impl JavaAnalysisListener {
                 }
             }
             JavaNodeType::ClassDeclaration => {
-                if let VertexType::Class(_, _, _, _, _) = ty.unwrap() {
+                if let VertexType::Class(_, _, _, _, _, _) = ty.unwrap() {
                     Some((VertexRelationship::Class, self.stack.pop()))
                 } else {
                     None
@@ -101,6 +100,13 @@ impl JavaAnalysisListener {
             },
             JavaNodeType::InterfaceDeclaration => None,
             JavaNodeType::EnumDeclaration => None,
+            JavaNodeType::FieldDeclaration => {
+                if let VertexType::Field(_, _, _, _, _, _) = ty.unwrap() {
+                    Some((VertexRelationship::Fields, self.stack.pop()))
+                } else {
+                    None
+                }
+            },
             JavaNodeType::MethodDeclaration => {
                 if let VertexType::Method(_, _, _, _, _, _, _) = ty.unwrap() {
                     Some((VertexRelationship::Methods, self.stack.pop()))
@@ -114,6 +120,7 @@ impl JavaAnalysisListener {
             _ => None
         } {
             if let Some(vertex) = vertex {
+                self.add_vertext_to_parent(relationship, vertex.clone());
                 self.add_vertex(relationship, vertex); 
             }
         }
@@ -172,8 +179,11 @@ impl JavaAnalysisListener {
         }
 
         if let Some(package_name) = self.get_package_name() {
-            let vertex_type = VertexType::Class(annotations, package_name.to_string(), ident.unwrap().to_string(), extends, implements.clone());
-            self.push_to_stack(JavaVertex::new(vertex_type));
+            let ty = match self.get_type_name() {
+                Some(type_name) => VertexType::Class(annotations, package_name.to_string(), Some(type_name), ident.unwrap().to_string(), extends, implements.clone()),
+                None => VertexType::Class(annotations, package_name.to_string(), None, ident.unwrap().to_string(), extends, implements.clone())
+            };
+            self.push_to_stack(JavaVertex::new(ty));
         }
     }
 
@@ -205,7 +215,7 @@ impl JavaAnalysisListener {
                             JavaNodeType::VariableInitializer => if let Some(attr) = child.get_attr() {
                                 variable_init = Some(attr.to_string());
                             }
-                            _ => () // println!("[WARNING] not produced node: {}", child.dump().unwrap())
+                            _ => ()
                         }
                     }
                 },
@@ -216,7 +226,7 @@ impl JavaAnalysisListener {
         if let Some(package_name) = self.get_package_name() {
             if let Some(type_name) = self.get_type_name() {
                 let vertex_type = VertexType::Field(package_name.to_string(), type_name.to_string(), modifiers.clone(), ty, variable_id, variable_init);
-                self.add_vertext_to_parent(VertexRelationship::Fields, JavaVertex::new(vertex_type));
+                self.push_to_stack(JavaVertex::new(vertex_type));
             }
         }
     }
@@ -270,7 +280,7 @@ impl JavaAnalysisListener {
         if let Some(package_name) = self.get_package_name() {
             if let Some(type_name) = self.get_type_name() {
                 let vertex_type = VertexType::Method(package_name.to_string(), type_name.to_string(), annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params);
-                self.add_vertext_to_parent(VertexRelationship::Methods, JavaVertex::new(vertex_type));
+                self.push_to_stack(JavaVertex::new(vertex_type));
             }
         }
     }
@@ -287,6 +297,10 @@ impl JavaAnalysisListener {
     }
 
     fn add_vertext_to_parent(&mut self, relationship: VertexRelationship, vertex: JavaVertex) {
+        if self.stack.len() <= 0 {
+            return;
+        }
+
         if let Some(top) = self.stack.top_mut() {
             top.add_member(relationship, vertex);
         }
@@ -301,13 +315,21 @@ impl JavaAnalysisListener {
         panic!("[ERROR]: package not found");
     }
 
-    fn get_type_name(&self) -> Option<&String> {
-        if let Some(jv) = self.stack.top() {
-            if let VertexType::Class(_, _, name, _, _) = jv.get_type().unwrap() {
-                return Some(name);
+    fn get_type_name(&self) -> Option<String> {
+        if self.stack.empty() {
+            return None;
+        }
+
+        let mut parents: Vec<&str> = Vec::new();
+        for index in 0..self.stack.len() {
+            if let Some(jv) = self.stack.get_by_index(index) {
+                if let VertexType::Class(_, _, _, name, _, _) = jv.get_type().unwrap() {
+                    parents.push(name)
+                }
             }
         }
-        panic!("[ERROR] type name not found");
+
+        Some(parents.join("."))
     }
 }
 
