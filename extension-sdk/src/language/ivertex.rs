@@ -49,7 +49,7 @@ impl AsRef<VertexType> for VertexType {
 }
 
 pub trait Vertex {
-    fn new(ty: &VertexType) -> Self where Self: Sized;
+    fn new(ty: VertexType) -> Self where Self: Sized;
     fn get_type(&self) -> Option<&VertexType>;
-    fn get_member_by_relationship(&self, relationship: VertexRelationship) -> Option<&Vec<VertexType>>;
+    fn get_member_by_relationship(&self, relationship: VertexRelationship) -> Option<&Vec<Box<Self>>>;
 }

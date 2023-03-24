@@ -14,20 +14,20 @@ use suzaku_extension_sdk::{
 #[derive(Debug, Serialize, Clone)]
 pub struct JavaVertex {
     ty: Option<VertexType>,
-    members: HashMap<VertexRelationship, Vec<VertexType>>
+    members: HashMap<VertexRelationship, Vec<Box<Self>>>
 }
 
 impl<'a> JavaVertex {
-    pub fn add_member(&mut self, relationship: VertexRelationship, ty: &'a VertexType) {
+    pub fn add_member(&mut self, relationship: VertexRelationship, ty: Self) {
         match self.members.get_mut(&relationship) {
-            Some(types) => types.push(ty.clone()),
-            None => _ = self.members.insert(relationship, vec![ty.clone()]),
+            Some(types) => types.push(Box::new(ty)),
+            None => _ = self.members.insert(relationship, vec![Box::new(ty)]),
         }
     }
 }
 
 impl Vertex for JavaVertex {
-    fn new(ty: &VertexType) -> Self where Self: Sized {
+    fn new(ty: VertexType) -> Self where Self: Sized {
         JavaVertex {
             ty: Some(ty.clone()),
             members: HashMap::new()
@@ -41,7 +41,7 @@ impl Vertex for JavaVertex {
         }
     }
 
-    fn get_member_by_relationship(&self, relationship: VertexRelationship) -> Option<&Vec<VertexType>> {
+    fn get_member_by_relationship(&self, relationship: VertexRelationship) -> Option<&Vec<Box<Self>>> {
         self.members.get(&relationship)
     }
 }
