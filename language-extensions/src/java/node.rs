@@ -77,7 +77,15 @@ impl JavaNode {
                             children.push(JavaNode { node_type: JavaNodeType::Expression, attr: ori_node.get_attr().clone(), members: LinkedList::new() });
                         },
                         JavaNodeType::MethodCall | JavaNodeType::Creator => {
-                            children.push(self.get_members_mut().pop_front().unwrap());
+                            let mut func_node = self.get_members_mut().pop_front().unwrap();
+
+                            let expr_attr = self.get_attr().as_ref().unwrap();
+                            let func_attr = func_node.get_attr().as_ref().unwrap();
+                            let new_expr = expr_attr.replace(format!(".{}", func_attr.as_str()).as_str(), "");
+
+                            func_node.set_attr(expr_attr);
+                            func_node.get_members_mut().push_front(JavaNode { node_type: JavaNodeType::Expression, attr: Some(new_expr), members: LinkedList::new() });
+                            children.push(func_node);
                         },
                         _ => children.push(self.clone())
                     }
