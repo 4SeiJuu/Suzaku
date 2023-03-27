@@ -4,8 +4,8 @@ use serde::Serialize;
 use suzaku_extension_sdk::{
     language::{
         ivertex::{
-            Vertex,
-            VertexRelationship,
+            IVertex,
+            VertexCategories,
             VertexType
         }
     },
@@ -14,19 +14,19 @@ use suzaku_extension_sdk::{
 #[derive(Debug, Serialize, Clone)]
 pub struct JavaVertex {
     ty: Option<VertexType>,
-    members: HashMap<VertexRelationship, Vec<Box<Self>>>
+    members: HashMap<VertexCategories, Vec<Box<Self>>>
 }
 
 impl<'a> JavaVertex {
-    pub fn add_member(&mut self, relationship: VertexRelationship, ty: Self) {
-        match self.members.get_mut(&relationship) {
+    pub fn add_member(&mut self, category: VertexCategories, ty: Self) {
+        match self.members.get_mut(&category) {
             Some(types) => types.push(Box::new(ty)),
-            None => _ = self.members.insert(relationship, vec![Box::new(ty)]),
+            None => _ = self.members.insert(category, vec![Box::new(ty)]),
         }
     }
 }
 
-impl Vertex for JavaVertex {
+impl IVertex for JavaVertex {
     fn new(ty: VertexType) -> Self where Self: Sized {
         JavaVertex {
             ty: Some(ty.clone()),
@@ -41,7 +41,7 @@ impl Vertex for JavaVertex {
         }
     }
 
-    fn get_member_by_relationship(&self, relationship: VertexRelationship) -> Option<&Vec<Box<Self>>> {
-        self.members.get(&relationship)
+    fn get_member_by_category(&self, category: VertexCategories) -> Option<&Vec<Box<Self>>> {
+        self.members.get(&category)
     }
 }

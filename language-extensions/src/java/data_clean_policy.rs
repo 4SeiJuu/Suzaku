@@ -16,9 +16,9 @@ use suzaku_extension_sdk::{
             LanguageDataCleanResult
         }, inode::INode, 
         ivertex::{
-            Vertex,
+            IVertex,
             VertexType,
-            VertexRelationship
+            VertexCategories
         }
     },
     stack::Stack,
@@ -33,12 +33,12 @@ use super::{
 };
 
 pub struct JavaDataCleanListener {
-    vertexes: HashMap<VertexRelationship, Vec<JavaVertex>>,
+    vertexes: HashMap<VertexCategories, Vec<JavaVertex>>,
     stack: Stack<JavaVertex>
 }
 
 impl JavaDataCleanListener {
-    pub fn results(&self) -> &HashMap<VertexRelationship, Vec<JavaVertex>> {
+    pub fn results(&self) -> &HashMap<VertexCategories, Vec<JavaVertex>> {
         &self.vertexes
     }
 
@@ -71,24 +71,24 @@ impl JavaDataCleanListener {
             panic!("[ERROR] invalid top node of stack. vertex type not found: {:?}", top);
         }
 
-        if let Some((relationship, vertex)) = match node.get_node_type() {
+        if let Some((category, vertex)) = match node.get_node_type() {
             JavaNodeType::PackageDeclaration => {
                 if let VertexType::Package(_) = ty.unwrap() {
-                    Some((VertexRelationship::Package, self.stack.pop()))
+                    Some((VertexCategories::Package, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::ImportDeclaration => {
                 if let VertexType::Import(_, _) = ty.unwrap() {
-                    Some((VertexRelationship::Imports, self.stack.pop()))
+                    Some((VertexCategories::Imports, self.stack.pop()))
                 } else {
                     None
                 }
             }
             JavaNodeType::ClassDeclaration => {
                 if let VertexType::Class(_, _, _, _, _, _) = ty.unwrap() {
-                    Some((VertexRelationship::Class, self.stack.pop()))
+                    Some((VertexCategories::Classes, self.stack.pop()))
                 } else {
                     None
                 } 
@@ -97,35 +97,35 @@ impl JavaDataCleanListener {
             JavaNodeType::EnumDeclaration => None,
             JavaNodeType::FieldDeclaration => {
                 if let VertexType::Field(_, _, _, _, _, _) = ty.unwrap() {
-                    Some((VertexRelationship::Fields, self.stack.pop()))
+                    Some((VertexCategories::Fields, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::MethodDeclaration => {
                 if let VertexType::Method(_, _, _, _, _, _, _) = ty.unwrap() {
-                    Some((VertexRelationship::Methods, self.stack.pop()))
+                    Some((VertexCategories::Methods, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::ConstructorDeclaration => {
                 if let VertexType::Constructor(_, _, _) = ty.unwrap() {
-                    Some((VertexRelationship::Constructors, self.stack.pop()))
+                    Some((VertexCategories::Constructors, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::Creator => {
                 if let VertexType::Creator(_, _) = ty.unwrap() {
-                    Some((VertexRelationship::CreatorCalls, self.stack.pop()))
+                    Some((VertexCategories::CreatorCalls, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::MethodCall => {
                 if let VertexType::MethodCall(_, _, _, _) = ty.unwrap() {
-                    Some((VertexRelationship::MethodCalls, self.stack.pop()))
+                    Some((VertexCategories::MethodCalls, self.stack.pop()))
                 } else {
                     None
                 }
@@ -133,8 +133,8 @@ impl JavaDataCleanListener {
             _ => None
         } {
             if let Some(vertex) = vertex {
-                self.add_vertext_to_parent(relationship, vertex.clone());
-                self.add_vertex(relationship, vertex); 
+                self.add_vertext_to_parent(category, vertex.clone());
+                self.add_vertex(category, vertex); 
             }
         }
     }
@@ -409,10 +409,10 @@ impl JavaDataCleanListener {
         self.push_to_stack(JavaVertex::new(ty));
     }
 
-    fn add_vertex(&mut self, relationship: VertexRelationship, vertex: JavaVertex) {
-        match self.vertexes.get_mut(&relationship) {
+    fn add_vertex(&mut self, category: VertexCategories, vertex: JavaVertex) {
+        match self.vertexes.get_mut(&category) {
             Some(vertexes) => _ = vertexes.push(vertex),
-            None => _ = self.vertexes.insert(relationship, vec![vertex]),
+            None => _ = self.vertexes.insert(category, vec![vertex]),
         }
     }
 
@@ -420,18 +420,18 @@ impl JavaDataCleanListener {
         self.stack.push(vertex);
     }
 
-    fn add_vertext_to_parent(&mut self, relationship: VertexRelationship, vertex: JavaVertex) {
+    fn add_vertext_to_parent(&mut self, category: VertexCategories, vertex: JavaVertex) {
         if self.stack.len() <= 0 {
             return;
         }
 
         if let Some(top) = self.stack.top_mut() {
-            top.add_member(relationship, vertex);
+            top.add_member(category, vertex);
         }
     }
 
     fn get_package_name(&self) -> Option<&String> {
-        if let Some(packages) = self.vertexes.get(VertexRelationship::Package.as_ref()) {
+        if let Some(packages) = self.vertexes.get(VertexCategories::Package.as_ref()) {
             if let VertexType::Package(package_name) = packages.get(0).unwrap().get_type().unwrap() {
                 return Some(package_name)
             }
@@ -460,7 +460,7 @@ impl JavaDataCleanListener {
 pub struct JavaDataCleanPolicy {}
 
 impl<'a> JavaDataCleanPolicy {
-    pub fn analysis(&mut self, node: &JavaNode) -> LanguageDataCleanResult<HashMap<VertexRelationship, Vec<JavaVertex>>> {
+    pub fn analysis(&mut self, node: &JavaNode) -> LanguageDataCleanResult<HashMap<VertexCategories, Vec<JavaVertex>>> {
         assert_eq!(node.get_node_type(), JavaNodeType::File);
 
         let mut listener = JavaDataCleanListener{

@@ -1,5 +1,5 @@
 # Suzaku
-Project optimization tool with Rust.
+Source code optimization tool with Rust.
 
 ## Features and Roadmap
  - [ ] source code scan (doing)

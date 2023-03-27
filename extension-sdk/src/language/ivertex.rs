@@ -1,12 +1,12 @@
 use serde::Serialize;
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Clone, Copy)]
-pub enum VertexRelationship {
+pub enum VertexCategories {
     Package,
     Imports,
-    Class,
-    Interface,
-    Annotation,
+    Classes,
+    Interfaces,
+    Annotations,
     Fields,
     Methods,
     MethodCalls,
@@ -14,8 +14,8 @@ pub enum VertexRelationship {
     Constructors,
 }
 
-impl AsRef<VertexRelationship> for VertexRelationship {
-    fn as_ref(&self) -> &VertexRelationship {
+impl AsRef<VertexCategories> for VertexCategories {
+    fn as_ref(&self) -> &VertexCategories {
         self
     }
 }
@@ -53,8 +53,8 @@ impl AsRef<VertexType> for VertexType {
     }
 }
 
-pub trait Vertex {
+pub trait IVertex {
     fn new(ty: VertexType) -> Self where Self: Sized;
     fn get_type(&self) -> Option<&VertexType>;
-    fn get_member_by_relationship(&self, relationship: VertexRelationship) -> Option<&Vec<Box<Self>>>;
+    fn get_member_by_category(&self, category: VertexCategories) -> Option<&Vec<Box<Self>>>;
 }
