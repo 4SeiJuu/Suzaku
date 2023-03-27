@@ -14,6 +14,7 @@ Source code optimization tool with Rust.
  - [ ] Java (doing)
  - [ ] C
  - [ ] C++
+ - [ ] Rust
 
 ## Usages
 ### all usages
