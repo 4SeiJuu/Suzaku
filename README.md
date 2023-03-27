@@ -2,13 +2,18 @@
 Project optimization tool with Rust.
 
 ## Features and Roadmap
- - [ ] source code scan
- - [ ] architecture analysis
+ - [ ] source code scan (doing)
+ - [ ] architecture analysis (doing)
  - [ ] refactor
  - [ ] unit testing generation 
  - [ ] decouple
  - [ ] injection
  - [ ] multiple and mixing languages support
+
+## Languages Supports
+ - [ ] Java (doing)
+ - [ ] C
+ - [ ] C++
 
 ## Usages
 ### all usages
