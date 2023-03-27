@@ -1,13 +1,13 @@
 use suzaku_extension_sdk::{
     language::{
         parser::LanguageParserPolicy, 
-        analyzer::LanguageAnalysisPolicy
+        data_cleaner::LanguageDataCleanPolicy
     }
 };
 use suzaku_language_extensions::{
     java::{
         parser_policy::JavaParserPolicy,
-        analyzer_policy::JavaAnalysisPolicy
+        data_clean_policy::JavaDataCleanPolicy
     },
 };
 
@@ -18,7 +18,7 @@ impl ExtensionFactory {
         Some(JavaParserPolicy::new())
     }
 
-    pub fn get_analysis_policy(language: &str) -> Option<impl LanguageAnalysisPolicy> {
-        Some(JavaAnalysisPolicy::new())
+    pub fn get_analysis_policy(language: &str) -> Option<impl LanguageDataCleanPolicy> {
+        Some(JavaDataCleanPolicy::new())
     }
 }

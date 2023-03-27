@@ -9,10 +9,10 @@ use suzaku_extension_sdk::language::{
         LanguageParseResult,
         LanguageParserPolicyError
     },
-    analyzer::{
-        LanguageAnalysisPolicy,
-        LanguageAnalysisResult,
-        LanguageAnalysisPolicyError
+    data_cleaner::{
+        LanguageDataCleanPolicy,
+        LanguageDataCleanResult,
+        LanguageDataCleanPolicyError
     }
 };
 
@@ -77,15 +77,15 @@ pub fn parse(src_dir: &PathBuf, output_dir: &PathBuf) -> LanguageParseResult<Pat
     }
 }
 
-pub fn analysis(metadata_dir: &PathBuf, output_dir: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
+pub fn analysis(metadata_dir: &PathBuf, output_dir: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
     let vertex_dir = output_dir.join(ANALYZED_RESULTS_FOLDER_NAME);
     if !metadata_dir.exists() {
         if let Err(_) = fs::create_dir_all(&metadata_dir) {
-            return Err(LanguageAnalysisPolicyError {});
+            return Err(LanguageDataCleanPolicyError {});
         }
     }
 
-    fn analysing(analyzer: &mut impl LanguageAnalysisPolicy, metadata: &PathBuf, output: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
+    fn analysing(analyzer: &mut impl LanguageDataCleanPolicy, metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
         print!(" * analysing '{}' -> ", metadata.to_str().unwrap());
         match analyzer.execute(metadata, output) {
             Ok(output_file_path) => {
@@ -119,7 +119,7 @@ pub fn analysis(metadata_dir: &PathBuf, output_dir: &PathBuf) -> LanguageAnalysi
         },
         None => {
             println!("failed to create analyzer");
-            Err(LanguageAnalysisPolicyError {})
+            Err(LanguageDataCleanPolicyError {})
         }
     }
 }

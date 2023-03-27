@@ -10,10 +10,10 @@ use std::{
 
 use suzaku_extension_sdk::{
     language::{
-        analyzer::{
-            LanguageAnalysisPolicy,
-            LanguageAnalysisPolicyError,
-            LanguageAnalysisResult
+        data_cleaner::{
+            LanguageDataCleanPolicy,
+            LanguageDataCleanPolicyError,
+            LanguageDataCleanResult
         }, inode::INode, 
         ivertex::{
             Vertex,
@@ -32,12 +32,12 @@ use super::{
     node::JavaNode
 };
 
-pub struct JavaAnalysisListener {
+pub struct JavaDataCleanListener {
     vertexes: HashMap<VertexRelationship, Vec<JavaVertex>>,
     stack: Stack<JavaVertex>
 }
 
-impl JavaAnalysisListener {
+impl JavaDataCleanListener {
     pub fn results(&self) -> &HashMap<VertexRelationship, Vec<JavaVertex>> {
         &self.vertexes
     }
@@ -457,36 +457,36 @@ impl JavaAnalysisListener {
     }
 }
 
-pub struct JavaAnalysisPolicy {}
+pub struct JavaDataCleanPolicy {}
 
-impl<'a> JavaAnalysisPolicy {
-    pub fn analysis(&mut self, node: &JavaNode) -> LanguageAnalysisResult<HashMap<VertexRelationship, Vec<JavaVertex>>> {
+impl<'a> JavaDataCleanPolicy {
+    pub fn analysis(&mut self, node: &JavaNode) -> LanguageDataCleanResult<HashMap<VertexRelationship, Vec<JavaVertex>>> {
         assert_eq!(node.get_node_type(), JavaNodeType::File);
 
-        let mut listener = JavaAnalysisListener{
+        let mut listener = JavaDataCleanListener{
             vertexes: HashMap::new(),
             stack: Stack::new(),
         };
-        JavaAnalysisPolicy::tree_walker(&node, &mut listener);
+        JavaDataCleanPolicy::tree_walker(&node, &mut listener);
 
         Ok(listener.results().clone())
     }
 
-    fn tree_walker(node: &JavaNode, listener: &mut JavaAnalysisListener) {
+    fn tree_walker(node: &JavaNode, listener: &mut JavaDataCleanListener) {
         listener.enter(&node);
         for child in node.get_members() {
-            JavaAnalysisPolicy::tree_walker(child, listener);
+            JavaDataCleanPolicy::tree_walker(child, listener);
         }
         listener.exit(&node);
     }
 }
 
-impl LanguageAnalysisPolicy for JavaAnalysisPolicy {
+impl LanguageDataCleanPolicy for JavaDataCleanPolicy {
     fn new() -> Self {
-        JavaAnalysisPolicy {}
+        JavaDataCleanPolicy {}
     }
 
-    fn execute(&mut self, metadata: &PathBuf, output: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
+    fn execute(&mut self, metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
         if metadata.is_file() && metadata.exists() {
             let context_str = fs::read_to_string(metadata).expect("should read context of file");
             let context: JavaNode = serde_json::from_str(&context_str).expect("failed to convert metadata to hashmap");
@@ -504,6 +504,6 @@ impl LanguageAnalysisPolicy for JavaAnalysisPolicy {
                 return Ok(output_file_path);
             }
         }
-        Err(LanguageAnalysisPolicyError {})
+        Err(LanguageDataCleanPolicyError {})
     }
 }
