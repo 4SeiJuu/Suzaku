@@ -12,6 +12,7 @@ Sources scan and analyzing tool with antlr4 and Rust
     - [Downloading Apache Maven](https://maven.apache.org/download.cgi)
 
 ### Build
+#### build antlr4 tool
 ```shell
 $ git clone -b rust-target git@github.com:rrevenantt/antlr4.git
 $ cd antlr4
@@ -34,13 +35,13 @@ when succeed, the jars will be installed to
 $HOME/.m2/repository/org/antlr/antlr4
 ```
 
-## Generates Lexer and Parser
-### Lexer
+#### Generates Lexer and Parser
+##### Lexer
 ```shell
 $ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./language-extensions/src/java/generated/JavaLexer.g4
 ```
 
-### Parser
+##### Parser
 ```shell
 $ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./language-extensions/src/java/generated/JavaParser.g4
 ```
