@@ -86,6 +86,15 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
                     .unwrap()
                     .get_members_mut()
                     .push_back(op_node);
+            },
+            "," => {
+                let mut sep_node = JavaNode::new(JavaNodeType::Separator);
+                sep_node.set_attr(_node.get_text().as_str());
+                self.stack_mut()
+                    .top_mut()
+                    .unwrap()
+                    .get_members_mut()
+                    .push_back(sep_node);
             }
             "static" => match self.stack_mut().top_mut().unwrap().get_node_type() {
                 JavaNodeType::ImportDeclaration | JavaNodeType::ClassBodyDeclaration => {

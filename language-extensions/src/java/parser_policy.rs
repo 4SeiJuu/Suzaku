@@ -20,7 +20,6 @@ use suzaku_extension_sdk::{
         inode::INode,
     },
     METADATA_FILE_EXTENSION,
-    PARSED_RESULT_FOLDER_NAME
 };
 
 use super::node::JavaNode;

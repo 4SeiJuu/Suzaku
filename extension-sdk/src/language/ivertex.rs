@@ -10,6 +10,8 @@ pub enum VertexRelationship {
     Fields,
     Methods,
     MethodCalls,
+    CreatorCalls,
+    Constructors,
 }
 
 impl AsRef<VertexRelationship> for VertexRelationship {
@@ -36,10 +38,13 @@ pub enum VertexType {
     Field(String, String, Vec<String>, Option<String>, Option<String>, Option<String>), 
     // package, type name, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
     Method(String, String, Option<String>, Vec<String>, String, String, Vec<(Option<String>, String, String)>),
-    // package, type name, method name, params((annotation, type, name))
-    MethodCall(String, String, String, Vec<(Option<String>, String, String)>),
-    // 
-    // Creator(String, String, String, Vec<()>)
+    // cast, caller, method name, params((annotation, type, name))
+    // TODO: how to due with cascade methods call. eg: a.b().c()
+    MethodCall(Option<String>, Option<String>, String, Vec<String>),
+    // name, rest
+    Creator(Vec<String>, Vec<String>),
+    // modifiers, ident, params(modifiers, type, name)
+    Constructor(Vec<String>, String, Vec<(Vec<String>, String, String)>),
 }
 
 impl AsRef<VertexType> for VertexType {

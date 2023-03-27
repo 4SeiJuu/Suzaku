@@ -135,6 +135,7 @@ pub enum JavaNodeType {
 
     Operator,
     Keyword,
+    Separator,
 }
 
 impl ToString for JavaNodeType {

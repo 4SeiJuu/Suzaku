@@ -52,15 +52,10 @@ impl JavaAnalysisListener {
             JavaNodeType::FieldDeclaration => self.analysis_field_declaration(node),
             JavaNodeType::MethodDeclaration => self.analysis_method_declaration(node),
             JavaNodeType::AnnotationTypeDeclaration => {},
-            JavaNodeType::ConstructorDeclaration => {},
+            JavaNodeType::ConstructorDeclaration => self.analysis_constructor(node),
             JavaNodeType::VariableDeclarators => {},
-            JavaNodeType::Creator => {},
-            JavaNodeType::MethodCall => {},
-            JavaNodeType::Annotation => {},
-            JavaNodeType::Modifier => {},
-            JavaNodeType::Identifier => {},
-            JavaNodeType::TypeType => {},
-            JavaNodeType::TypeList => {},
+            JavaNodeType::Creator => self.analysis_creator(node),
+            JavaNodeType::MethodCall => self.analysis_method_call(node),
             _ => ()
         }
     }
@@ -114,9 +109,27 @@ impl JavaAnalysisListener {
                     None
                 }
             },
-            JavaNodeType::ConstructorDeclaration => None,
-            JavaNodeType::Creator => None,
-            JavaNodeType::MethodCall => None,
+            JavaNodeType::ConstructorDeclaration => {
+                if let VertexType::Constructor(_, _, _) = ty.unwrap() {
+                    Some((VertexRelationship::Constructors, self.stack.pop()))
+                } else {
+                    None
+                }
+            },
+            JavaNodeType::Creator => {
+                if let VertexType::Creator(_, _) = ty.unwrap() {
+                    Some((VertexRelationship::CreatorCalls, self.stack.pop()))
+                } else {
+                    None
+                }
+            },
+            JavaNodeType::MethodCall => {
+                if let VertexType::MethodCall(_, _, _, _) = ty.unwrap() {
+                    Some((VertexRelationship::MethodCalls, self.stack.pop()))
+                } else {
+                    None
+                }
+            },
             _ => None
         } {
             if let Some(vertex) = vertex {
@@ -130,7 +143,10 @@ impl JavaAnalysisListener {
         assert_eq!(node.get_node_type(), JavaNodeType::PackageDeclaration);
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::QualifiedName => self.push_to_stack(JavaVertex::new(VertexType::Package(String::from(member.get_attr().as_ref().unwrap().as_str())))),
+                JavaNodeType::QualifiedName => {
+                    let ty = VertexType::Package(String::from(member.get_attr().as_ref().unwrap().as_str()));
+                    self.push_to_stack(JavaVertex::new(ty));
+                },
                 _ => ()
             }
         }
@@ -203,7 +219,7 @@ impl JavaAnalysisListener {
                 JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
                     ty = Some(attr.to_string());
                 },
-                JavaNodeType::VariableDeclarators => {
+                JavaNodeType::VariableDeclarator => {
                     if member.get_members().len() == 0 {
                         variable_id = Some(member.get_attr().as_ref().unwrap().to_string());
                         continue;
@@ -279,10 +295,118 @@ impl JavaAnalysisListener {
 
         if let Some(package_name) = self.get_package_name() {
             if let Some(type_name) = self.get_type_name() {
-                let vertex_type = VertexType::Method(package_name.to_string(), type_name.to_string(), annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params);
-                self.push_to_stack(JavaVertex::new(vertex_type));
+                let ty = VertexType::Method(package_name.to_string(), type_name.to_string(), annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params);
+                self.push_to_stack(JavaVertex::new(ty));
             }
         }
+    }
+
+    fn analysis_method_call(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::MethodCall);
+
+        let mut cast: Option<String> = None;
+        let mut idents: Vec<String> = Vec::new();
+        let mut params: Vec<String> = Vec::new();
+
+        for child in node.get_members() {
+            match child.get_node_type() {
+                JavaNodeType::TypeType => cast = Some(child.get_attr().as_ref().unwrap().to_string()),
+                JavaNodeType::Identifier => idents.push(child.get_attr().as_ref().unwrap().to_string()),
+                JavaNodeType::ExpressionList => if child.get_members().len() > 0 {
+                    for param_node in child.get_members() {
+                        if param_node.get_node_type() != JavaNodeType::Separator {
+                            params.push(param_node.get_attr().as_ref().unwrap().to_string());
+                        }
+                    }
+                } else {
+                    params.push(child.get_attr().as_ref().unwrap().to_string());
+                },
+                _ => ()
+            }
+        }
+
+        assert!(idents.len() > 0);
+        let ty = match idents.len() {
+            1 => VertexType::MethodCall(cast, None, idents.get(0).unwrap().to_string(), params),
+            _ => {
+                let ident = idents.swap_remove(idents.len() - 1);
+                VertexType::MethodCall(cast, Some(idents.join(".")), ident, params)
+            }
+        };
+        self.push_to_stack(JavaVertex::new(ty));
+    }
+
+    fn analysis_creator(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::Creator);
+
+        let mut creator_name: Vec<String> = Vec::new();
+        let mut rests: Vec<String> = Vec::new();
+
+        for child in node.get_members() {
+            match child.get_node_type() {
+                JavaNodeType::CreatedName => for ident in child.get_members() {
+                    creator_name.push(ident.get_attr().as_ref().unwrap().to_string())
+                },
+                JavaNodeType::ClassCreatorRest => if let Some(arguments) = child.get_members().front() {
+                    assert_eq!(arguments.get_node_type(), JavaNodeType::Arguments);
+                    if arguments.get_members().len() > 0 {
+                        for arg in arguments.get_members() {
+                            rests.push(arg.get_attr().as_ref().unwrap().to_string());
+                        }
+                    }
+                },
+                JavaNodeType::ArrayCreatorRest => if child.get_members().len() > 0 {
+                    for item in child.get_members() {
+                        rests.push(item.get_attr().as_ref().unwrap().to_string());
+                    }
+                },
+                _ => ()
+            }
+        }
+
+        let ty = VertexType::Creator(creator_name, rests);
+        self.push_to_stack(JavaVertex::new(ty));
+    }
+
+    fn analysis_constructor(&mut self, node: &JavaNode) {
+        assert_eq!(node.get_node_type(), JavaNodeType::ConstructorDeclaration);
+
+        let mut modifiers: Vec<String> = Vec::new();
+        let mut ident: Option<String> = None;
+        let mut params: Vec<(Vec<String>, String, String)> = Vec::new();
+
+        for child in node.get_members() {
+            match child.get_node_type() {
+                JavaNodeType::Modifier => modifiers.push(child.get_attr().as_ref().unwrap().to_string()),
+                JavaNodeType::Identifier => ident = Some(child.get_attr().as_ref().unwrap().to_string()),
+                JavaNodeType::FormalParameters => if child.get_members().len() > 0 {
+                    for param in child.get_members() {
+                        match param.get_node_type() {
+                            JavaNodeType::FormalParameter => {
+                                let mut param_modifiers: Vec<String> = Vec::new();
+                                let mut ty: Option<String> = None;
+                                let mut name: Option<String> = None;
+
+                                for part in param.get_members() {
+                                    match part.get_node_type() {
+                                        JavaNodeType::VariableModifier => param_modifiers.push(part.get_attr().as_ref().unwrap().to_string()),
+                                        JavaNodeType::TypeType => ty = Some(part.get_attr().as_ref().unwrap().to_string()),
+                                        JavaNodeType::VariableDeclaratorId => name = Some(part.get_attr().as_ref().unwrap().to_string()),
+                                        _ => ()
+                                    }
+                                }
+                                params.push((param_modifiers, ty.unwrap(), name.unwrap()));
+                            },
+                            _ => ()
+                        }
+                    }
+                },
+                _ => ()
+            }
+        }
+
+        let ty = VertexType::Constructor(modifiers, ident.unwrap().to_string(), params);
+        self.push_to_stack(JavaVertex::new(ty));
     }
 
     fn add_vertex(&mut self, relationship: VertexRelationship, vertex: JavaVertex) {
@@ -329,7 +453,7 @@ impl JavaAnalysisListener {
             }
         }
 
-        Some(parents.join("."))
+        Some(parents.join("::"))
     }
 }
 
