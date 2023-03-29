@@ -285,8 +285,8 @@ impl JavaDataCleanListener {
 
         let mut annotation: Option<String> = None;
         let mut modifiers: Vec<String> = Vec::new();
-        let mut ret_type: Option<&str> = None;
-        let mut name: Option<&str> = None;
+        let mut ret_type: Option<TypeDescriptor> = None;
+        let mut name: Option<String> = None;
         let mut params: Vec<ParamDescriptor> = Vec::new();
 
         for member in node.get_members() {
@@ -298,10 +298,14 @@ impl JavaDataCleanListener {
                     modifiers.push(attr.to_string());
                 },
                 JavaNodeType::TypeTypeOrVoid => if let Some(attr) = member.get_attr() {
-                    ret_type = Some(attr.as_str());
+                    let package = match self.get_dependency_full_type_name(attr.as_str()) {
+                        Some(pn) => pn.clone(),
+                        None => Vec::new()
+                    };
+                    ret_type = Some(TypeDescriptor { package: package, name: attr.to_string() });
                 },
                 JavaNodeType::Identifier => if let Some(attr) = member.get_attr() {
-                    name = Some(attr.as_str());
+                    name = Some(attr.clone());
                 },
                 JavaNodeType::FormalParameters => for child in member.get_members() {
                     match child.get_node_type() {
@@ -343,8 +347,8 @@ impl JavaDataCleanListener {
         };
 
         let ty = match self.get_type_name() {
-            Some(type_name) => VertexType::Method(package, type_name, annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params),
-            None => VertexType::Method(package, Vec::new(), annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params),
+            Some(type_name) => VertexType::Method(package, type_name, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
+            None => VertexType::Method(package, Vec::new(), annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
         };
 
         self.push_to_stack(JavaVertex::new(ty));

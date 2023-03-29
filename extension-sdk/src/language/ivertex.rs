@@ -50,7 +50,7 @@ pub enum VertexType {
     // package, ancestor types, modifiers, field type, field name, field value
     Field(Vec<String>, Vec<String>, Vec<String>, Option<TypeDescriptor>, Option<String>, Option<String>), 
     // package, ancestor types, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
-    Method(Vec<String>, Vec<String>, Option<String>, Vec<String>, String, String, Vec<ParamDescriptor>),
+    Method(Vec<String>, Vec<String>, Option<String>, Vec<String>, TypeDescriptor, String, Vec<ParamDescriptor>),
     // TODO: how to due with cascade methods call. eg: a.b().c()
     // cast, caller, method name, params((annotation, type, name))
     MethodCall(Option<String>, Option<String>, String, Vec<String>),
