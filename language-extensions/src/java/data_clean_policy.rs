@@ -18,7 +18,7 @@ use suzaku_extension_sdk::{
         ivertex::{
             IVertex,
             VertexType,
-            VertexCategories
+            VertexCategories, TypeDescriptor
         }
     },
     stack::Stack,
@@ -80,7 +80,7 @@ impl JavaDataCleanListener {
                 }
             },
             JavaNodeType::ImportDeclaration => {
-                if let VertexType::Import(_, _) = ty.unwrap() {
+                if let VertexType::Import(_) = ty.unwrap() {
                     Some((VertexCategories::Imports, self.stack.pop()))
                 } else {
                     None
@@ -166,7 +166,10 @@ impl JavaDataCleanListener {
                         idents.push(ident.get_attr().as_ref().unwrap().to_string());
                     }
                     let type_name = idents.swap_remove(idents.len() - 1);
-                    let ty = VertexType::Import(idents, type_name);
+                    let ty = VertexType::Import(TypeDescriptor {
+                        package: idents, 
+                        name: type_name
+                    });
                     self.push_to_stack(JavaVertex::new(ty));
                 },
                 _ => ()
@@ -180,8 +183,8 @@ impl JavaDataCleanListener {
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
-        let mut extends: Option<(Vec<String>, String)> = None;
-        let mut implements: Vec<(Vec<String>, String)> = Vec::new();
+        let mut extends: Option<TypeDescriptor> = None;
+        let mut implements: Vec<TypeDescriptor> = Vec::new();
 
         for member in node.get_members() {
             match member.get_node_type() {
@@ -196,14 +199,20 @@ impl JavaDataCleanListener {
                 },
                 JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
                     extends = match self.get_dependency_full_type_name(attr.as_str()) {
-                        Some(pn) => Some((pn.clone(), attr.to_string())),
-                        None => Some((Vec::new(), attr.to_string()))
+                        Some(pn) => Some(TypeDescriptor {
+                            package: pn.clone(), 
+                            name: attr.to_string()
+                        }),
+                        None => Some(TypeDescriptor {
+                            package: Vec::new(), 
+                            name: attr.to_string()
+                        })
                     };
                 },
                 JavaNodeType::TypeList => if let Some(attr) = member.get_attr() {
                     let implement = match self.get_dependency_full_type_name(attr.as_str()) {
-                        Some(pn) => (pn.clone(), attr.to_string()),
-                        None => (Vec::new(), attr.to_string())
+                        Some(pn) => TypeDescriptor { package: pn.clone(), name: attr.to_string()},
+                        None => TypeDescriptor {package: Vec::new(), name: attr.to_string()}
                     };
                     implements.push(implement)
                 },
@@ -213,8 +222,8 @@ impl JavaDataCleanListener {
 
         if let Some(package_name) = self.get_package_name() {
             let ty = match self.get_type_name() {
-                Some(type_name) => VertexType::Class(package_name.clone(), Some(type_name), annotations, modifiers, ident.unwrap(), extends, implements.clone()),
-                None => VertexType::Class(package_name.clone(), None, annotations, modifiers, ident.unwrap(), extends, implements.clone())
+                Some(type_name) => VertexType::Class(package_name.clone(), type_name, annotations, modifiers, ident.unwrap(), extends, implements.clone()),
+                None => VertexType::Class(package_name.clone(), Vec::new(), annotations, modifiers, ident.unwrap(), extends, implements.clone())
             };
             self.push_to_stack(JavaVertex::new(ty));
         }
@@ -224,7 +233,7 @@ impl JavaDataCleanListener {
         assert_eq!(node.get_node_type(), JavaNodeType::FieldDeclaration);
 
         let mut modifiers: Vec<String> = Vec::new();
-        let mut ty: Option<(Vec<String>, String)> = None;
+        let mut ty: Option<TypeDescriptor> = None;
         let mut variable_id: Option<String> = None;
         let mut variable_init: Option<String> = None;
 
@@ -235,8 +244,8 @@ impl JavaDataCleanListener {
                 },
                 JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
                     match self.get_dependency_full_type_name(attr.as_str()) {
-                        Some(pp) => ty = Some((pp.clone(), attr.to_string())),
-                        None => ty = Some((Vec::new(), attr.to_string()))
+                        Some(pp) => ty = Some(TypeDescriptor {package: pp.clone(), name: attr.to_string()}),
+                        None => ty = Some(TypeDescriptor {package: Vec::new(), name: attr.to_string()})
                     }
                 },
                 JavaNodeType::VariableDeclarator => {
@@ -263,10 +272,12 @@ impl JavaDataCleanListener {
             Some(pn) => pn.clone(),
             None => Vec::new()
         };
-        let type_name = self.get_type_name();
 
-        let vertex_type = VertexType::Field(package, type_name, modifiers.clone(), ty, variable_id, variable_init);
-        self.push_to_stack(JavaVertex::new(vertex_type));
+        let ty = match self.get_type_name() {
+            Some(type_name) => VertexType::Field(package, type_name, modifiers.clone(), ty, variable_id, variable_init),
+            None => VertexType::Field(package, Vec::new(), modifiers.clone(), ty, variable_id, variable_init)
+        };
+        self.push_to_stack(JavaVertex::new(ty));
     }
 
     fn analysis_method_declaration(&mut self, node: &JavaNode) {
@@ -315,12 +326,17 @@ impl JavaDataCleanListener {
             }
         }
 
-        if let Some(package_name) = self.get_package_name() {
-            if let Some(type_name) = self.get_type_name() {
-                let ty = VertexType::Method(package_name.clone(), type_name.to_string(), annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params);
-                self.push_to_stack(JavaVertex::new(ty));
-            }
-        }
+        let package = match self.get_package_name() {
+            Some(pn) => pn.clone(),
+            None => Vec::new()
+        };
+
+        let ty = match self.get_type_name() {
+            Some(type_name) => VertexType::Method(package, type_name, annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params),
+            None => VertexType::Method(package, Vec::new(), annotation, modifiers, ret_type.unwrap().to_string(), name.unwrap().to_string(), params),
+        };
+
+        self.push_to_stack(JavaVertex::new(ty));
     }
 
     fn analysis_method_call(&mut self, node: &JavaNode) {
@@ -395,7 +411,7 @@ impl JavaDataCleanListener {
 
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
-        let mut params: Vec<(Vec<String>, String, String)> = Vec::new();
+        let mut params: Vec<(Vec<String>, TypeDescriptor, String)> = Vec::new();
 
         for child in node.get_members() {
             match child.get_node_type() {
@@ -406,13 +422,23 @@ impl JavaDataCleanListener {
                         match param.get_node_type() {
                             JavaNodeType::FormalParameter => {
                                 let mut param_modifiers: Vec<String> = Vec::new();
-                                let mut ty: Option<String> = None;
+                                let mut ty: Option<TypeDescriptor> = None;
                                 let mut name: Option<String> = None;
 
                                 for part in param.get_members() {
                                     match part.get_node_type() {
                                         JavaNodeType::VariableModifier => param_modifiers.push(part.get_attr().as_ref().unwrap().to_string()),
-                                        JavaNodeType::TypeType => ty = Some(part.get_attr().as_ref().unwrap().to_string()),
+                                        JavaNodeType::TypeType => {
+                                            let type_name = part.get_attr().as_ref().unwrap().as_str();
+                                            let package_name = match self.get_dependency_full_type_name(type_name) {
+                                                Some(pn) => pn.clone(),
+                                                None => Vec::new()
+                                            };
+                                            ty = Some(TypeDescriptor {
+                                                package: package_name,
+                                                name: type_name.to_string()
+                                            });
+                                        },
                                         JavaNodeType::VariableDeclaratorId => name = Some(part.get_attr().as_ref().unwrap().to_string()),
                                         _ => ()
                                     }
@@ -427,12 +453,16 @@ impl JavaDataCleanListener {
             }
         }
 
-        let package_name = match self.get_package_name() {
+        let package = match self.get_package_name() {
             Some(pn) => pn.clone(),
             None => Vec::new()
         };
-        let type_name = self.get_type_name();
-        let ty = VertexType::Constructor(package_name, type_name, modifiers, ident.unwrap().to_string(), params);
+
+        let ty = match self.get_type_name() {
+            Some(type_name) => VertexType::Constructor(package, type_name, modifiers, ident.unwrap().to_string(), params),
+            None => VertexType::Constructor(package, Vec::new(), modifiers, ident.unwrap().to_string(), params),
+        };
+
         self.push_to_stack(JavaVertex::new(ty));
     }
 
@@ -466,30 +496,30 @@ impl JavaDataCleanListener {
         panic!("[ERROR]: package not found");
     }
 
-    fn get_type_name(&self) -> Option<String> {
+    fn get_type_name(&self) -> Option<Vec<String>> {
         if self.stack.empty() {
             return None;
         }
 
-        let mut parents: Vec<&str> = Vec::new();
+        let mut parents: Vec<String> = Vec::new();
         for index in 0..self.stack.len() {
             if let Some(jv) = self.stack.get_by_index(index) {
                 if let VertexType::Class(_, _, _, _, name, _, _) = jv.get_type().unwrap() {
-                    parents.push(name)
+                    parents.push(name.to_string())
                 }
             }
         }
 
-        Some(parents.join("::"))
+        Some(parents)
     }
 
     fn get_dependency_full_type_name(&self, short_name: &str) -> Option<&Vec<String>> {
         if let Some(imports) = self.vertexes.get(&VertexCategories::Imports) {
             for import in imports {
                 if let Some(ty) = import.get_type() {
-                    if let VertexType::Import(package, name) = ty {
-                        if name.as_str() == short_name {
-                            return Some(package)
+                    if let VertexType::Import(package) = ty {
+                        if package.name.as_str() == short_name {
+                            return Some(&package.package)
                         }
                     }
                 }
