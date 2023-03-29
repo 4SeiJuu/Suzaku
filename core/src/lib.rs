@@ -36,8 +36,8 @@ pub fn parse(src_dir: &PathBuf, output_dir: &PathBuf) -> LanguageParseResult<Pat
         }
     }
 
-    fn parsing(parser: &impl LanguageParserPolicy, src: &PathBuf, output: &PathBuf) -> LanguageParseResult<PathBuf> {
-        print!(" * parsing '{}' -> ", src.to_str().unwrap());
+    fn parsing(parser: &impl LanguageParserPolicy, index: usize, total: usize, src: &PathBuf, output: &PathBuf) -> LanguageParseResult<PathBuf> {
+        print!(" * parsing [{} / {}] '{}' -> ", index, total, src.to_str().unwrap());
         match parser.execute(src, output) {
             Ok(output_file_path) => {
                 println!("{}", output_file_path.to_str().unwrap());
@@ -53,17 +53,20 @@ pub fn parse(src_dir: &PathBuf, output_dir: &PathBuf) -> LanguageParseResult<Pat
     match languages::ExtensionFactory::get_parser_policy("java") {
         Some(parser) => {
             if src_dir.is_file() {
-                if let Err(err) = parsing(&parser, src_dir, output_dir) {
+                if let Err(err) = parsing(&parser, 1, 1, src_dir, output_dir) {
                     return Err(err);
                 }
             } else if let Some(exts) = parser.get_filename_extensions() {
                 for ext in exts {
                     let filename_pattern = format!("{}/**/*.{}", src_dir.to_str().unwrap(), ext);
                     if let Some(files) = list_files(src_dir, filename_pattern.as_str()) {
+                        let mut index: usize = 1;
+                        let total: usize = files.len();
                         for f in files {
-                            if let Err(err) = parsing(&parser, &PathBuf::from(f.as_str()), &metadata_dir) {
+                            if let Err(err) = parsing(&parser, index, total, &PathBuf::from(f.as_str()), &metadata_dir) {
                                 return Err(err);
                             }
+                            index += 1;
                         }
                     }
                 }
@@ -85,7 +88,7 @@ pub fn analysis(metadata_dir: &PathBuf, output_dir: &PathBuf) -> LanguageDataCle
         }
     }
 
-    fn analysing(analyzer: &mut impl LanguageDataCleanPolicy, metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
+    fn analysing(analyzer: &mut impl LanguageDataCleanPolicy, index: usize, total: usize, metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
         print!(" * analysing '{}' -> ", metadata.to_str().unwrap());
         match analyzer.execute(metadata, output) {
             Ok(output_file_path) => {
@@ -102,16 +105,19 @@ pub fn analysis(metadata_dir: &PathBuf, output_dir: &PathBuf) -> LanguageDataCle
     match languages::ExtensionFactory::get_analysis_policy("java") {
         Some(mut analyzer) => {
             if metadata_dir.is_file() {
-                if let Err(err) = analysing(&mut analyzer, metadata_dir, &vertex_dir) {
+                if let Err(err) = analysing(&mut analyzer, 1, 1, metadata_dir, &vertex_dir) {
                     return Err(err);
                 }
             } else {
                 let filename_pattern = format!("{}/**/*.{}", metadata_dir.to_str().unwrap(), METADATA_FILE_EXTENSION);
                 if let Some(files) = list_files(metadata_dir, filename_pattern.as_str()) {
+                    let mut index: usize = 1;
+                    let total: usize = files.len();
                     for f in files {
-                        if let Err(err) = analysing(&mut analyzer, &PathBuf::from(f.as_str()), &vertex_dir) {
+                        if let Err(err) = analysing(&mut analyzer, index, total, &PathBuf::from(f.as_str()), &vertex_dir) {
                             return Err(err);
                         }
+                        index += 1;
                     }
                 }
             }

@@ -36,22 +36,22 @@ impl ParserListener {
         &mut self.stack
     }
 
-    fn update_node_attrs<T: Fn(&mut JavaNode)>(
-        &mut self,
-        node_type: Option<JavaNodeType>,
-        update_attrs: T,
-    ) -> Option<&JavaNode> {
-        let mut top_node = self
-            .stack_mut()
-            .top_mut()
-            .unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
-        if let Some(expected_node_type) = node_type {
-            if top_node.get_node_type() != expected_node_type {
-                panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}", expected_node_type, top_node.get_node_type());
-            }
+    fn update_node_attrs<T: Fn(&mut JavaNode)>(&mut self, node_type: JavaNodeType, update_attrs: T) -> Option<&JavaNode> {
+        match self.stack().top() {
+            Some(top) => if top.get_node_type() != node_type {
+                panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}\n== Dump ======\n{}\n===============", 
+                    node_type, top.get_node_type(), self.stack().dump().unwrap());
+            },
+            None => panic!("[ERROR] invalid stack status. stack should not be empty.")
+        };
+
+        match self.stack_mut().top_mut() {
+            Some(top_node) => {
+                update_attrs(top_node);
+                Some(top_node)
+            },
+            None => panic!("[ERROR] invalid status. parent node not found.")
         }
-        update_attrs(&mut top_node);
-        Some(top_node)
     }
 
     fn add_to_parent_member(&mut self) {
@@ -141,7 +141,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_packageDeclaration(&mut self, _ctx: &PackageDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::PackageDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::PackageDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -159,7 +159,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_importDeclaration(&mut self, _ctx: &ImportDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ImportDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::ImportDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -177,7 +177,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeDeclaration(&mut self, _ctx: &TypeDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::TypeDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -194,7 +194,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_modifier(&mut self, _ctx: &ModifierContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Modifier), |node| {
+        self.update_node_attrs(JavaNodeType::Modifier, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -212,7 +212,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_variableModifier(&mut self, _ctx: &VariableModifierContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::VariableModifier), |node| {
+        self.update_node_attrs(JavaNodeType::VariableModifier, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -230,7 +230,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_classDeclaration(&mut self, _ctx: &ClassDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ClassDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::ClassDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -248,7 +248,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeParameters(&mut self, _ctx: &TypeParametersContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeParameters), |node| {
+        self.update_node_attrs(JavaNodeType::TypeParameters, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -266,7 +266,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeParameter(&mut self, _ctx: &TypeParameterContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeParameter), |node| {
+        self.update_node_attrs(JavaNodeType::TypeParameter, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -283,7 +283,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeBound(&mut self, _ctx: &TypeBoundContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeBound), |node| {
+        self.update_node_attrs(JavaNodeType::TypeBound, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -301,7 +301,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_enumDeclaration(&mut self, _ctx: &EnumDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::EnumDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::EnumDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -319,7 +319,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_enumConstants(&mut self, _ctx: &EnumConstantsContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::EnumConstants), |node| {
+        self.update_node_attrs(JavaNodeType::EnumConstants, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -336,7 +336,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_enumConstant(&mut self, _ctx: &EnumConstantContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::EnumConstant), |node| {
+        self.update_node_attrs(JavaNodeType::EnumConstant, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -354,7 +354,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_enumBodyDeclarations(&mut self, _ctx: &EnumBodyDeclarationsContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::EnumBodyDeclarations), |node| {
+        self.update_node_attrs(JavaNodeType::EnumBodyDeclarations, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -372,7 +372,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_interfaceDeclaration(&mut self, _ctx: &InterfaceDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::InterfaceDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::InterfaceDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -389,7 +389,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_classBody(&mut self, _ctx: &ClassBodyContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ClassBody), |node| {
+        self.update_node_attrs(JavaNodeType::ClassBody, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -407,7 +407,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_interfaceBody(&mut self, _ctx: &InterfaceBodyContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::InterfaceBody), |node| {
+        self.update_node_attrs(JavaNodeType::InterfaceBody, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -425,7 +425,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_classBodyDeclaration(&mut self, _ctx: &ClassBodyDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ClassBodyDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::ClassBodyDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -443,7 +443,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_memberDeclaration(&mut self, _ctx: &MemberDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::MemberDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::MemberDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -461,7 +461,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_methodDeclaration(&mut self, _ctx: &MethodDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::MethodDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::MethodDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -478,7 +478,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_methodBody(&mut self, _ctx: &MethodBodyContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::MethodBody), |node| {
+        self.update_node_attrs(JavaNodeType::MethodBody, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -496,7 +496,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeTypeOrVoid(&mut self, _ctx: &TypeTypeOrVoidContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeTypeOrVoid), |node| {
+        self.update_node_attrs(JavaNodeType::TypeTypeOrVoid, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -514,7 +514,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_genericMethodDeclaration(&mut self, _ctx: &GenericMethodDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::GenericMethodDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::GenericMethodDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -538,7 +538,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &GenericConstructorDeclarationContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::GenericConstructorDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::GenericConstructorDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -556,7 +556,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_constructorDeclaration(&mut self, _ctx: &ConstructorDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ConstructorDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::ConstructorDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -580,7 +580,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &CompactConstructorDeclarationContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::CompactConstructorDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::CompactConstructorDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -598,7 +598,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_fieldDeclaration(&mut self, _ctx: &FieldDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::FieldDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::FieldDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -616,7 +616,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_interfaceBodyDeclaration(&mut self, _ctx: &InterfaceBodyDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::InterfaceBodyDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::InterfaceBodyDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -640,7 +640,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &InterfaceMemberDeclarationContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::InterfaceMemberDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::InterfaceMemberDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -658,7 +658,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_constDeclaration(&mut self, _ctx: &ConstDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ConstDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::ConstDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -676,7 +676,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_constantDeclarator(&mut self, _ctx: &ConstantDeclaratorContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ConstantDeclarator), |node| {
+        self.update_node_attrs(JavaNodeType::ConstantDeclarator, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -700,7 +700,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &InterfaceMethodDeclarationContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::InterfaceMethodDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::InterfaceMethodDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -718,7 +718,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_interfaceMethodModifier(&mut self, _ctx: &InterfaceMethodModifierContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::InterfaceMethodModifier), |node| {
+        self.update_node_attrs(JavaNodeType::InterfaceMethodModifier, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -742,7 +742,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &GenericInterfaceMethodDeclarationContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::GenericInterfaceMethodDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::GenericInterfaceMethodDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -766,7 +766,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &InterfaceCommonBodyDeclarationContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::InterfaceCommonBodyDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::InterfaceCommonBodyDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -784,7 +784,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_variableDeclarators(&mut self, _ctx: &VariableDeclaratorsContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::VariableDeclarators), |node| {
+        self.update_node_attrs(JavaNodeType::VariableDeclarators, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -802,7 +802,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_variableDeclarator(&mut self, _ctx: &VariableDeclaratorContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::VariableDeclarator), |node| {
+        self.update_node_attrs(JavaNodeType::VariableDeclarator, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -820,7 +820,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_variableDeclaratorId(&mut self, _ctx: &VariableDeclaratorIdContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::VariableDeclaratorId), |node| {
+        self.update_node_attrs(JavaNodeType::VariableDeclaratorId, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -838,7 +838,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_variableInitializer(&mut self, _ctx: &VariableInitializerContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::VariableInitializer), |node| {
+        self.update_node_attrs(JavaNodeType::VariableInitializer, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -856,7 +856,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_arrayInitializer(&mut self, _ctx: &ArrayInitializerContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ArrayInitializer), |node| {
+        self.update_node_attrs(JavaNodeType::ArrayInitializer, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -874,7 +874,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_classOrInterfaceType(&mut self, _ctx: &ClassOrInterfaceTypeContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ClassOrInterfaceType), |node| {
+        self.update_node_attrs(JavaNodeType::ClassOrInterfaceType, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -891,7 +891,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeArgument(&mut self, _ctx: &TypeArgumentContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeArgument), |node| {
+        self.update_node_attrs(JavaNodeType::TypeArgument, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -909,7 +909,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_qualifiedNameList(&mut self, _ctx: &QualifiedNameListContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::QualifiedNameList), |node| {
+        self.update_node_attrs(JavaNodeType::QualifiedNameList, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -927,7 +927,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_formalParameters(&mut self, _ctx: &FormalParametersContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::FormalParameters), |node| {
+        self.update_node_attrs(JavaNodeType::FormalParameters, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -945,7 +945,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_receiverParameter(&mut self, _ctx: &ReceiverParameterContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ReceiverParameter), |node| {
+        self.update_node_attrs(JavaNodeType::ReceiverParameter, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -963,7 +963,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_formalParameterList(&mut self, _ctx: &FormalParameterListContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::FormalParameterList), |node| {
+        self.update_node_attrs(JavaNodeType::FormalParameterList, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -981,7 +981,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_formalParameter(&mut self, _ctx: &FormalParameterContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::FormalParameter), |node| {
+        self.update_node_attrs(JavaNodeType::FormalParameter, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -999,7 +999,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_lastFormalParameter(&mut self, _ctx: &LastFormalParameterContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LastFormalParameter), |node| {
+        self.update_node_attrs(JavaNodeType::LastFormalParameter, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1017,7 +1017,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_lambdaLVTIList(&mut self, _ctx: &LambdaLVTIListContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LambdaLVTIList), |node| {
+        self.update_node_attrs(JavaNodeType::LambdaLVTIList, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1035,7 +1035,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_lambdaLVTIParameter(&mut self, _ctx: &LambdaLVTIParameterContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LambdaLVTIParameter), |node| {
+        self.update_node_attrs(JavaNodeType::LambdaLVTIParameter, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1053,7 +1053,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_qualifiedName(&mut self, _ctx: &QualifiedNameContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::QualifiedName), |node| {
+        self.update_node_attrs(JavaNodeType::QualifiedName, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1070,7 +1070,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_literal(&mut self, _ctx: &LiteralContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Literal), |node| {
+        self.update_node_attrs(JavaNodeType::Literal, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1088,7 +1088,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_integerLiteral(&mut self, _ctx: &IntegerLiteralContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::IntegerLiteral), |node| {
+        self.update_node_attrs(JavaNodeType::IntegerLiteral, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1105,7 +1105,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_floatLiteral(&mut self, _ctx: &FloatLiteralContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::FloatLiteral), |node| {
+        self.update_node_attrs(JavaNodeType::FloatLiteral, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1129,7 +1129,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &AltAnnotationQualifiedNameContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::AltAnnotationQualifiedName), |node| {
+        self.update_node_attrs(JavaNodeType::AltAnnotationQualifiedName, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1146,7 +1146,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_annotation(&mut self, _ctx: &AnnotationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Annotation), |node| {
+        self.update_node_attrs(JavaNodeType::Annotation, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1164,7 +1164,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_elementValuePairs(&mut self, _ctx: &ElementValuePairsContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ElementValuePairs), |node| {
+        self.update_node_attrs(JavaNodeType::ElementValuePairs, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1182,7 +1182,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_elementValuePair(&mut self, _ctx: &ElementValuePairContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ElementValuePair), |node| {
+        self.update_node_attrs(JavaNodeType::ElementValuePair, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1199,7 +1199,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_elementValue(&mut self, _ctx: &ElementValueContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ElementValue), |node| {
+        self.update_node_attrs(JavaNodeType::ElementValue, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1223,7 +1223,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &ElementValueArrayInitializerContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::ElementValueArrayInitializer), |node| {
+        self.update_node_attrs(JavaNodeType::ElementValueArrayInitializer, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1241,7 +1241,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_annotationTypeDeclaration(&mut self, _ctx: &AnnotationTypeDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::AnnotationTypeDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::AnnotationTypeDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1259,7 +1259,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_annotationTypeBody(&mut self, _ctx: &AnnotationTypeBodyContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::AnnotationTypeBody), |node| {
+        self.update_node_attrs(JavaNodeType::AnnotationTypeBody, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1283,7 +1283,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &AnnotationTypeElementDeclarationContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::AnnotationTypeElementDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::AnnotationTypeElementDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1301,7 +1301,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_annotationTypeElementRest(&mut self, _ctx: &AnnotationTypeElementRestContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::AnnotationTypeElementRest), |node| {
+        self.update_node_attrs(JavaNodeType::AnnotationTypeElementRest, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1325,7 +1325,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &AnnotationMethodOrConstantRestContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::AnnotationMethodOrConstantRest), |node| {
+        self.update_node_attrs(JavaNodeType::AnnotationMethodOrConstantRest, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1343,7 +1343,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_annotationMethodRest(&mut self, _ctx: &AnnotationMethodRestContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::AnnotationMethodRest), |node| {
+        self.update_node_attrs(JavaNodeType::AnnotationMethodRest, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1361,7 +1361,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_annotationConstantRest(&mut self, _ctx: &AnnotationConstantRestContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::AnnotationConstantRest), |node| {
+        self.update_node_attrs(JavaNodeType::AnnotationConstantRest, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1378,7 +1378,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_defaultValue(&mut self, _ctx: &DefaultValueContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::DefaultValue), |node| {
+        self.update_node_attrs(JavaNodeType::DefaultValue, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1396,7 +1396,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_moduleDeclaration(&mut self, _ctx: &ModuleDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ModuleDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::ModuleDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1413,7 +1413,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_moduleBody(&mut self, _ctx: &ModuleBodyContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ModuleBody), |node| {
+        self.update_node_attrs(JavaNodeType::ModuleBody, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1431,7 +1431,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_moduleDirective(&mut self, _ctx: &ModuleDirectiveContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ModuleDirective), |node| {
+        self.update_node_attrs(JavaNodeType::ModuleDirective, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1449,7 +1449,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_requiresModifier(&mut self, _ctx: &RequiresModifierContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::RequiresModifier), |node| {
+        self.update_node_attrs(JavaNodeType::RequiresModifier, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1467,7 +1467,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_recordDeclaration(&mut self, _ctx: &RecordDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::RecordDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::RecordDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1484,7 +1484,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_recordHeader(&mut self, _ctx: &RecordHeaderContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::RecordHeader), |node| {
+        self.update_node_attrs(JavaNodeType::RecordHeader, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1502,7 +1502,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_recordComponentList(&mut self, _ctx: &RecordComponentListContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::RecordComponentList), |node| {
+        self.update_node_attrs(JavaNodeType::RecordComponentList, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1520,7 +1520,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_recordComponent(&mut self, _ctx: &RecordComponentContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::RecordComponent), |node| {
+        self.update_node_attrs(JavaNodeType::RecordComponent, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1537,7 +1537,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_recordBody(&mut self, _ctx: &RecordBodyContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::RecordBody), |node| {
+        self.update_node_attrs(JavaNodeType::RecordBody, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1554,7 +1554,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_block(&mut self, _ctx: &BlockContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Block), |node| {
+        self.update_node_attrs(JavaNodeType::Block, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1572,7 +1572,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_blockStatement(&mut self, _ctx: &BlockStatementContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::BlockStatement), |node| {
+        self.update_node_attrs(JavaNodeType::BlockStatement, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1590,7 +1590,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_localVariableDeclaration(&mut self, _ctx: &LocalVariableDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LocalVariableDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::LocalVariableDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1607,7 +1607,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_identifier(&mut self, _ctx: &IdentifierContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Identifier), |node| {
+        self.update_node_attrs(JavaNodeType::Identifier, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1625,7 +1625,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeIdentifier(&mut self, _ctx: &TypeIdentifierContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeIdentifier), |node| {
+        self.update_node_attrs(JavaNodeType::TypeIdentifier, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1643,7 +1643,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_localTypeDeclaration(&mut self, _ctx: &LocalTypeDeclarationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LocalTypeDeclaration), |node| {
+        self.update_node_attrs(JavaNodeType::LocalTypeDeclaration, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1660,7 +1660,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_statement(&mut self, _ctx: &StatementContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Statement), |node| {
+        self.update_node_attrs(JavaNodeType::Statement, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1677,7 +1677,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_catchClause(&mut self, _ctx: &CatchClauseContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::CatchClause), |node| {
+        self.update_node_attrs(JavaNodeType::CatchClause, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1694,7 +1694,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_catchType(&mut self, _ctx: &CatchTypeContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::CatchType), |node| {
+        self.update_node_attrs(JavaNodeType::CatchType, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1711,7 +1711,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_finallyBlock(&mut self, _ctx: &FinallyBlockContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::FinallyBlock), |node| {
+        self.update_node_attrs(JavaNodeType::FinallyBlock, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1729,7 +1729,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_resourceSpecification(&mut self, _ctx: &ResourceSpecificationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ResourceSpecification), |node| {
+        self.update_node_attrs(JavaNodeType::ResourceSpecification, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1746,7 +1746,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_resources(&mut self, _ctx: &ResourcesContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Resources), |node| {
+        self.update_node_attrs(JavaNodeType::Resources, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1763,7 +1763,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_resource(&mut self, _ctx: &ResourceContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Resource), |node| {
+        self.update_node_attrs(JavaNodeType::Resource, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1781,7 +1781,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_switchBlockStatementGroup(&mut self, _ctx: &SwitchBlockStatementGroupContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::SwitchBlockStatementGroup), |node| {
+        self.update_node_attrs(JavaNodeType::SwitchBlockStatementGroup, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1798,7 +1798,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_switchLabel(&mut self, _ctx: &SwitchLabelContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::SwitchLabel), |node| {
+        self.update_node_attrs(JavaNodeType::SwitchLabel, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1815,7 +1815,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_forControl(&mut self, _ctx: &ForControlContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ForControl), |node| {
+        self.update_node_attrs(JavaNodeType::ForControl, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1832,7 +1832,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_forInit(&mut self, _ctx: &ForInitContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ForInit), |node| {
+        self.update_node_attrs(JavaNodeType::ForInit, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1850,7 +1850,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_enhancedForControl(&mut self, _ctx: &EnhancedForControlContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::EnhancedForControl), |node| {
+        self.update_node_attrs(JavaNodeType::EnhancedForControl, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1868,7 +1868,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_parExpression(&mut self, _ctx: &ParExpressionContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ParExpression), |node| {
+        self.update_node_attrs(JavaNodeType::ParExpression, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1886,7 +1886,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_expressionList(&mut self, _ctx: &ExpressionListContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ExpressionList), |node| {
+        self.update_node_attrs(JavaNodeType::ExpressionList, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1903,7 +1903,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_methodCall(&mut self, _ctx: &MethodCallContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::MethodCall), |node| {
+        self.update_node_attrs(JavaNodeType::MethodCall, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1920,7 +1920,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_expression(&mut self, _ctx: &ExpressionContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Expression), |node| {
+        self.update_node_attrs(JavaNodeType::Expression, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1937,7 +1937,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_pattern(&mut self, _ctx: &PatternContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Pattern), |node| {
+        self.update_node_attrs(JavaNodeType::Pattern, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1955,7 +1955,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_lambdaExpression(&mut self, _ctx: &LambdaExpressionContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LambdaExpression), |node| {
+        self.update_node_attrs(JavaNodeType::LambdaExpression, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1973,7 +1973,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_lambdaParameters(&mut self, _ctx: &LambdaParametersContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LambdaParameters), |node| {
+        self.update_node_attrs(JavaNodeType::LambdaParameters, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -1990,7 +1990,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_lambdaBody(&mut self, _ctx: &LambdaBodyContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::LambdaBody), |node| {
+        self.update_node_attrs(JavaNodeType::LambdaBody, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2007,7 +2007,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_primary(&mut self, _ctx: &PrimaryContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Primary), |node| {
+        self.update_node_attrs(JavaNodeType::Primary, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2025,7 +2025,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_switchExpression(&mut self, _ctx: &SwitchExpressionContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::SwitchExpression), |node| {
+        self.update_node_attrs(JavaNodeType::SwitchExpression, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2043,7 +2043,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_switchLabeledRule(&mut self, _ctx: &SwitchLabeledRuleContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::SwitchLabeledRule), |node| {
+        self.update_node_attrs(JavaNodeType::SwitchLabeledRule, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2061,7 +2061,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_guardedPattern(&mut self, _ctx: &GuardedPatternContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::GuardedPattern), |node| {
+        self.update_node_attrs(JavaNodeType::GuardedPattern, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2079,7 +2079,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_switchRuleOutcome(&mut self, _ctx: &SwitchRuleOutcomeContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::SwitchRuleOutcome), |node| {
+        self.update_node_attrs(JavaNodeType::SwitchRuleOutcome, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2096,7 +2096,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_classType(&mut self, _ctx: &ClassTypeContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ClassType), |node| {
+        self.update_node_attrs(JavaNodeType::ClassType, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2113,7 +2113,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_creator(&mut self, _ctx: &CreatorContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Creator), |node| {
+        self.update_node_attrs(JavaNodeType::Creator, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2130,7 +2130,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_createdName(&mut self, _ctx: &CreatedNameContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::CreatedName), |node| {
+        self.update_node_attrs(JavaNodeType::CreatedName, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2147,7 +2147,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_innerCreator(&mut self, _ctx: &InnerCreatorContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::InnerCreator), |node| {
+        self.update_node_attrs(JavaNodeType::InnerCreator, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2165,7 +2165,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_arrayCreatorRest(&mut self, _ctx: &ArrayCreatorRestContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ArrayCreatorRest), |node| {
+        self.update_node_attrs(JavaNodeType::ArrayCreatorRest, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2183,7 +2183,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_classCreatorRest(&mut self, _ctx: &ClassCreatorRestContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ClassCreatorRest), |node| {
+        self.update_node_attrs(JavaNodeType::ClassCreatorRest, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2201,7 +2201,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_explicitGenericInvocation(&mut self, _ctx: &ExplicitGenericInvocationContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::ExplicitGenericInvocation), |node| {
+        self.update_node_attrs(JavaNodeType::ExplicitGenericInvocation, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2219,7 +2219,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeArgumentsOrDiamond(&mut self, _ctx: &TypeArgumentsOrDiamondContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeArgumentsOrDiamond), |node| {
+        self.update_node_attrs(JavaNodeType::TypeArgumentsOrDiamond, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2243,7 +2243,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &NonWildcardTypeArgumentsOrDiamondContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::NonWildcardTypeArgumentsOrDiamond), |node| {
+        self.update_node_attrs(JavaNodeType::NonWildcardTypeArgumentsOrDiamond, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2261,7 +2261,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_nonWildcardTypeArguments(&mut self, _ctx: &NonWildcardTypeArgumentsContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::NonWildcardTypeArguments), |node| {
+        self.update_node_attrs(JavaNodeType::NonWildcardTypeArguments, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2278,7 +2278,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeList(&mut self, _ctx: &TypeListContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeList), |node| {
+        self.update_node_attrs(JavaNodeType::TypeList, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2295,7 +2295,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeType(&mut self, _ctx: &TypeTypeContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeType), |node| {
+        self.update_node_attrs(JavaNodeType::TypeType, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2313,7 +2313,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_primitiveType(&mut self, _ctx: &PrimitiveTypeContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::PrimitiveType), |node| {
+        self.update_node_attrs(JavaNodeType::PrimitiveType, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2331,7 +2331,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_typeArguments(&mut self, _ctx: &TypeArgumentsContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::TypeArguments), |node| {
+        self.update_node_attrs(JavaNodeType::TypeArguments, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2348,7 +2348,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_superSuffix(&mut self, _ctx: &SuperSuffixContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::SuperSuffix), |node| {
+        self.update_node_attrs(JavaNodeType::SuperSuffix, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2372,7 +2372,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         &mut self,
         _ctx: &ExplicitGenericInvocationSuffixContext<'input>,
     ) {
-        self.update_node_attrs(Some(JavaNodeType::ExplicitGenericInvocationSuffix), |node| {
+        self.update_node_attrs(JavaNodeType::ExplicitGenericInvocationSuffix, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();
@@ -2389,7 +2389,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn exit_arguments(&mut self, _ctx: &ArgumentsContext<'input>) {
-        self.update_node_attrs(Some(JavaNodeType::Arguments), |node| {
+        self.update_node_attrs(JavaNodeType::Arguments, |node| {
             node.set_attr(_ctx.get_text().as_str());
         });
         self.add_to_parent_member();

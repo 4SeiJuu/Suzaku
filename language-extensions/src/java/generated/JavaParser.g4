@@ -126,7 +126,7 @@ interfaceBody
 classBodyDeclaration
     : ';'
     | STATIC? block
-    | annotation* modifier* memberDeclaration
+    | annotation* modifier* annotation* memberDeclaration
     ;
 
 memberDeclaration
