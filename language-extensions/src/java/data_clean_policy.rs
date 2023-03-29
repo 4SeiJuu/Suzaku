@@ -18,7 +18,7 @@ use suzaku_extension_sdk::{
         ivertex::{
             IVertex,
             VertexType,
-            VertexCategories, TypeDescriptor
+            VertexCategories, TypeDescriptor, ParamDescriptor
         }
     },
     stack::Stack,
@@ -287,7 +287,7 @@ impl JavaDataCleanListener {
         let mut modifiers: Vec<String> = Vec::new();
         let mut ret_type: Option<&str> = None;
         let mut name: Option<&str> = None;
-        let mut params: Vec<(Option<String>, String, String)> = Vec::new();
+        let mut params: Vec<ParamDescriptor> = Vec::new();
 
         for member in node.get_members() {
             match member.get_node_type() {
@@ -306,18 +306,29 @@ impl JavaDataCleanListener {
                 JavaNodeType::FormalParameters => for child in member.get_members() {
                     match child.get_node_type() {
                         JavaNodeType::FormalParameter => {
-                            let mut modifier: Option<String> = None;
-                            let mut ty: Option<String> = None;
+                            let mut modifiers: Vec<String> = Vec::new();
+                            let mut ty: Option<TypeDescriptor> = None;
                             let mut ident: Option<String> = None;
                             for item in child.get_members() {
                                 match item.get_node_type() {
-                                    JavaNodeType::VariableModifier => modifier = Some(item.get_attr().as_ref().unwrap().to_string()),
-                                    JavaNodeType::TypeType => ty = Some(item.get_attr().as_ref().unwrap().to_string()),
+                                    JavaNodeType::VariableModifier => modifiers.push(item.get_attr().as_ref().unwrap().to_string()),
+                                    JavaNodeType::TypeType => {
+                                        let name = item.get_attr().as_ref().unwrap().as_str();
+                                        let package = match self.get_dependency_full_type_name(name) {
+                                            Some(pn) => pn.clone(),
+                                            None => Vec::new()
+                                        };
+                                        ty = Some(TypeDescriptor { package: package, name: name.to_string() })
+                                    },
                                     JavaNodeType::VariableDeclaratorId => ident = Some(item.get_attr().as_ref().unwrap().to_string()),
                                     _ => ()
                                 };
                             }
-                            params.push((modifier, ty.unwrap().to_string(), ident.unwrap().to_string()));
+                            params.push(ParamDescriptor {
+                                modifiers: modifiers, 
+                                ty: ty.unwrap(), 
+                                name: ident.unwrap().to_string()
+                            });
                         },
                         _ => ()
                     }
@@ -411,7 +422,7 @@ impl JavaDataCleanListener {
 
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
-        let mut params: Vec<(Vec<String>, TypeDescriptor, String)> = Vec::new();
+        let mut params: Vec<ParamDescriptor> = Vec::new();
 
         for child in node.get_members() {
             match child.get_node_type() {
@@ -443,7 +454,11 @@ impl JavaDataCleanListener {
                                         _ => ()
                                     }
                                 }
-                                params.push((param_modifiers, ty.unwrap(), name.unwrap()));
+                                params.push(ParamDescriptor {
+                                    modifiers: param_modifiers, 
+                                    ty: ty.unwrap(), 
+                                    name: name.unwrap()
+                                });
                             },
                             _ => ()
                         }

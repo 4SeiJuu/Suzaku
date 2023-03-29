@@ -27,6 +27,13 @@ pub struct TypeDescriptor {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ParamDescriptor {
+    pub modifiers: Vec<String>,
+    pub ty: TypeDescriptor,
+    pub name: String
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub enum VertexType {
     // package name
     Package(Vec<String>),
@@ -43,14 +50,14 @@ pub enum VertexType {
     // package, ancestor types, modifiers, field type, field name, field value
     Field(Vec<String>, Vec<String>, Vec<String>, Option<TypeDescriptor>, Option<String>, Option<String>), 
     // package, ancestor types, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
-    Method(Vec<String>, Vec<String>, Option<String>, Vec<String>, String, String, Vec<(Option<String>, String, String)>),
+    Method(Vec<String>, Vec<String>, Option<String>, Vec<String>, String, String, Vec<ParamDescriptor>),
     // TODO: how to due with cascade methods call. eg: a.b().c()
     // cast, caller, method name, params((annotation, type, name))
     MethodCall(Option<String>, Option<String>, String, Vec<String>),
     // package, name, rest
     Creator(Vec<String>, Vec<String>, Vec<String>),
     // package, ancestor types, modifiers, ident, params(modifiers, type, name)
-    Constructor(Vec<String>, Vec<String>, Vec<String>, String, Vec<(Vec<String>, TypeDescriptor, String)>),
+    Constructor(Vec<String>, Vec<String>, Vec<String>, String, Vec<ParamDescriptor>),
 }
 
 impl AsRef<VertexType> for VertexType {
