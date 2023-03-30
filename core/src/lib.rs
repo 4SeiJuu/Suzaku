@@ -53,7 +53,7 @@ pub fn parse(src_dir: &PathBuf, output_dir: &PathBuf) -> LanguageParseResult<Pat
     match languages::ExtensionFactory::get_parser_policy("java") {
         Some(parser) => {
             if src_dir.is_file() {
-                if let Err(err) = parsing(&parser, 1, 1, src_dir, output_dir) {
+                if let Err(err) = parsing(&parser, 1, 1, src_dir, &metadata_dir) {
                     return Err(err);
                 }
             } else if let Some(exts) = parser.get_filename_extensions() {

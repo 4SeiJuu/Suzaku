@@ -8,6 +8,9 @@ use std::{
     io::Write
 };
 
+use serde::Deserialize;
+use serde_json::Value;
+
 use suzaku_extension_sdk::{
     language::{
         data_cleaner::{
@@ -378,6 +381,12 @@ impl JavaDataCleanListener {
             }
         }
 
+        // debug
+        if idents.len() <= 0 {
+            println!("= DUMP ==\n{}\n=========", node.dump().unwrap());
+        }
+        // debug end
+
         assert!(idents.len() > 0);
         let ident = idents.swap_remove(idents.len() - 1);
         let ty = VertexType::MethodCall(cast, Some(idents.join(".")), ident, params);
@@ -580,7 +589,17 @@ impl LanguageDataCleanPolicy for JavaDataCleanPolicy {
     fn execute(&mut self, metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
         if metadata.is_file() && metadata.exists() {
             let context_str = fs::read_to_string(metadata).expect("should read context of file");
-            let context: JavaNode = serde_json::from_str(&context_str).expect("failed to convert metadata to hashmap");
+
+            // solved following issue:
+            //   Error("recursion limit exceeded", line: 1, column: 271738)
+            // refer to : https://github.com/lovasoa/bad_json_parsers/issues/7
+            //   or comments of disable_recursion_limit method in 
+            //     .rust/cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-df7c3c540f42cdbd/serde_json-1.0.93/src/de.rs
+            let mut deserializer = serde_json::Deserializer::from_str(&context_str);
+            deserializer.disable_recursion_limit();
+            let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
+            let v = Value::deserialize(deserializer).unwrap();
+            let context: JavaNode = serde_json::from_value(v).unwrap();
 
             if let Ok(jv) = self.analysis(&context) {
                 if !output.exists() {

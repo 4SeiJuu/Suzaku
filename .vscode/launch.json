@@ -7,7 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'suzaku-cli'",
+            "name": "Analysis source",
             "cargo": {
                 "args": [
                     "build",
@@ -23,6 +23,30 @@
                 "analysis",
                 "-s",
                 "./temp/java_src",
+                "-o",
+                "./temp"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Analysis metadata",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=suzaku-cli",
+                    "--package=suzaku-cli"
+                ],
+                "filter": {
+                    "name": "suzaku-cli",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "analysis",
+                "-m",
+                "./temp/metadata/AccessNetworkUtils.json",
                 "-o",
                 "./temp"
             ],

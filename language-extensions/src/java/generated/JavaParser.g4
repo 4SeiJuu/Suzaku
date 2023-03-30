@@ -472,6 +472,8 @@ identifier
     | PERMITS
     | RECORD
     | VAR
+    | THIS
+    | SUPER
     ;
 
 typeIdentifier  // Identifiers that are not restricted for type declarations
