@@ -38,6 +38,10 @@ enum Commands {
         /// Set output folder path which will store the output files
         #[arg(short, long, value_name = "OUTPUT", default_value_t = String::from("."))]
         output: String,
+
+        /// Set paths which need be excluded folder or file
+        #[arg(short, long, value_name = "EXCLUDES")]
+        exclude: Option<Vec<String>>
     },
 
     /// analysis source code
@@ -53,14 +57,28 @@ enum Commands {
         /// Set output folder path which will store the output files
         #[arg(short, long, value_name = "OUTPUT", default_value_t = String::from("."))]
         output: String,
+
+        /// Set paths which need be excluded folder or file
+        #[arg(short, long, value_name = "EXCLUDES")]
+        exclude: Option<Vec<String>>
     },
 }
 
 fn main() {
     let cli = Cli::parse();
 
+    let extend_excludes = |excludes: &Vec<String>| -> Vec<PathBuf> {
+        let mut excluded_paths: Vec<PathBuf> = Vec::new();
+        for exclude in excludes {
+            if let Ok(path) = fs::canonicalize(exclude) {
+                excluded_paths.push(path);
+            }
+        }
+        excluded_paths
+    };
+
     match &cli.command {
-        Some(Commands::Parse { src, output }) => {
+        Some(Commands::Parse { src, output, exclude: excludes }) => {
             let src_dir = fs::canonicalize(Path::new(src));
             if let Err(e) = src_dir {
                 let mut cmd = Cli::command();
@@ -75,12 +93,17 @@ fn main() {
                     format!("{}: {}", e, output)).exit();
             }
 
-            match suzaku_core::parse(&src_dir.unwrap(), &output_dir.unwrap()) {
+            let excluded_paths = match excludes {
+                Some(ex) => extend_excludes(ex),
+                None => Vec::new()
+            };
+
+            match suzaku_core::parse(&src_dir.unwrap(), &output_dir.unwrap(), excluded_paths) {
                 Ok(metadata_files_folder) => println!("Parsed results already stored at: {}", metadata_files_folder.to_str().unwrap()),
                 Err(err) => panic!("[ERROR] {:?}", err)
             }
         },
-        Some(Commands::Analysis { src, metadata, output }) => {
+        Some(Commands::Analysis { src, metadata, output, exclude: excludes}) => {
             match fs::canonicalize(Path::new(output)) {
                 Ok(output_dir) => {
                     if let Some(src) = src {
@@ -90,11 +113,16 @@ fn main() {
                             cmd.error(ErrorKind::InvalidValue, 
                                 format!("{}: {}", e, src)).exit();
                         }
+
+                        let excluded_paths = match excludes {
+                            Some(ex) => extend_excludes(ex),
+                            None => Vec::new()
+                        };
         
-                        match suzaku_core::parse(&src_dir.unwrap(), &output_dir) {
+                        match suzaku_core::parse(&src_dir.unwrap(), &output_dir, excluded_paths) {
                             Ok(metadata_dir) => {
-                                match suzaku_core::analysis(&metadata_dir, &output_dir) {
-                                    Ok(vertex_files_folder) => println!("Analysized results already stored at: {}", vertex_files_folder.to_str().unwrap()),
+                                match suzaku_core::data_clean(&metadata_dir, &output_dir) {
+                                    Ok(vertex_files_folder) => println!("Cleaned data results already stored at: {}", vertex_files_folder.to_str().unwrap()),
                                     Err(err) => panic!("[ERROR] {:?}", err)
                                 }
                             }
@@ -108,8 +136,8 @@ fn main() {
                                 format!("{}: {}", e, metadata)).exit();
                         }
         
-                        match suzaku_core::analysis(&metadata_dir.unwrap(), &output_dir) {
-                            Ok(vertex_files_folder) => println!("Analysized results already stored at: {}", vertex_files_folder.to_str().unwrap()),
+                        match suzaku_core::data_clean(&metadata_dir.unwrap(), &output_dir) {
+                            Ok(vertex_files_folder) => println!("Cleaned data results already stored at: {}", vertex_files_folder.to_str().unwrap()),
                             Err(err) => panic!("[ERROR] {:?}", err)
                         }
                     } else {

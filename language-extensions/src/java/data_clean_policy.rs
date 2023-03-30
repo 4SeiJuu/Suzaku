@@ -521,7 +521,8 @@ impl JavaDataCleanListener {
                 return Some(package_name)
             }
         }
-        panic!("[ERROR]: package not found");
+        eprintln!("[WARNING]: package not found");
+        None
     }
 
     fn get_type_name(&self) -> Option<Vec<String>> {
@@ -568,7 +569,6 @@ impl<'a> JavaDataCleanPolicy {
             stack: Stack::new(),
         };
         JavaDataCleanPolicy::tree_walker(&node, &mut listener);
-
         Ok(listener.results().clone())
     }
 

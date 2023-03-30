@@ -14,8 +14,9 @@ use suzaku_extension_sdk::{
     language::{
         parser::{
             LanguageParserPolicy, 
+            LanguageParsePolicyInfo,
             LanguageParserPolicyError,
-            LanguageParseResult, 
+            LanguageParseResult,
         },
         inode::INode,
     },
@@ -82,7 +83,10 @@ impl<'consumer> LanguageParserPolicy for JavaParserPolicy {
         }
         Err(LanguageParserPolicyError {})
     }
+}
 
+pub struct JavaParserPolicyInfo;
+impl LanguageParsePolicyInfo for JavaParserPolicyInfo {
     fn get_filename_extensions(&self) -> Option<Vec<String>> {
         Some(vec![String::from(SRC_FILE_EXTENSION)])
     }
