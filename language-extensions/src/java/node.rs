@@ -80,7 +80,12 @@ impl JavaNode {
                     }
                     children.push(top);
                     return children;
-                }
+                },
+                JavaNodeType::InterfaceCommonBodyDeclaration => {
+                    while let Some(member) = self.get_members_mut().pop_front() {
+                        children.push(member);
+                    }
+                },
                 _ => ()
             }
     

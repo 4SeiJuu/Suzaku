@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use suzaku_extension_sdk::{
     language::{
@@ -11,7 +11,7 @@ use suzaku_extension_sdk::{
     },
 };
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JavaVertex {
     ty: Option<VertexType>,
     members: HashMap<VertexCategories, Vec<Box<Self>>>

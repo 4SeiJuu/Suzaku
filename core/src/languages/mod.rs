@@ -1,13 +1,15 @@
 use suzaku_extension_sdk::{
     language::{
         parser::{LanguageParserPolicy, LanguageParsePolicyInfo}, 
-        data_cleaner::LanguageDataCleanPolicy
+        data_cleaner::LanguageDataCleanPolicy,
+        analyzer::LanguageAnalysisPolicy,
     }
 };
 use suzaku_language_extensions::{
     java::{
         parser_policy::{JavaParserPolicy, JavaParserPolicyInfo},
-        data_clean_policy::JavaDataCleanPolicy
+        data_clean_policy::JavaDataCleanPolicy,
+        analyzer_policy::JavaAnalyzer,
     },
 };
 
@@ -24,5 +26,9 @@ impl ExtensionFactory {
 
     pub fn get_data_clean_policy(language: &str) -> Option<impl LanguageDataCleanPolicy> {
         Some(JavaDataCleanPolicy::new())
+    }
+
+    pub fn get_analysis_policy(language: &str) -> Option<impl LanguageAnalysisPolicy> {
+        Some(JavaAnalyzer::new())
     }
 }

@@ -7,7 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Analysis source",
+            "name": "Parse",
             "cargo": {
                 "args": [
                     "build",
@@ -20,7 +20,7 @@
                 }
             },
             "args": [
-                "analysis",
+                "parse",
                 "-s",
                 "./temp/java_src",
                 "-o",
@@ -31,7 +31,31 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Analysis metadata",
+            "name": "Data Clean",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=suzaku-cli",
+                    "--package=suzaku-cli"
+                ],
+                "filter": {
+                    "name": "suzaku-cli",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "data-clean",
+                "-m",
+                "./temp/metadata/QuickAccessWalletClient.json",
+                "-o",
+                "./temp"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Analysis",
             "cargo": {
                 "args": [
                     "build",
@@ -45,8 +69,32 @@
             },
             "args": [
                 "analysis",
-                "-m",
-                "./temp/metadata/AccessNetworkUtils.json",
+                "-v",
+                "./temp/vertexes",
+                "-o",
+                "./temp"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Pipeline",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=suzaku-cli",
+                    "--package=suzaku-cli"
+                ],
+                "filter": {
+                    "name": "suzaku-cli",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "pipeline",
+                "-c",
+                "",
                 "-o",
                 "./temp"
             ],
