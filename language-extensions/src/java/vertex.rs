@@ -34,6 +34,10 @@ impl IVertex for JavaVertex {
         }
     }
 
+    fn set_type(&mut self, ty: Option<VertexType>) {
+        self.ty = ty;
+    }
+
     fn get_type(&self) -> Option<&VertexType> {
         match self.ty.as_ref() {
             Some(value) => Some(&value),
@@ -41,7 +45,18 @@ impl IVertex for JavaVertex {
         }
     }
 
+    fn get_type_mut(&mut self) -> Option<&mut VertexType> {
+        match self.ty.as_mut() {
+            Some(value) => Some(value),
+            None => None
+        }
+    }
+
     fn get_member_by_category(&self, category: VertexCategories) -> Option<&Vec<Box<Self>>> {
         self.members.get(&category)
+    }
+
+    fn get_member_by_category_mut(&mut self, category: VertexCategories) -> Option<&mut Vec<Box<Self>>> {
+        self.members.get_mut(&category)
     }
 }

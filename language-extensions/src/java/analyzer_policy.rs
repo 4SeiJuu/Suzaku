@@ -1,4 +1,4 @@
-use std::{path::PathBuf, fs::{self, File}, io::Write, collections::HashMap};
+use std::{path::PathBuf, collections::HashMap, fs::{File, self}, io::Write};
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -6,14 +6,9 @@ use serde_json::Value;
 use suzaku_extension_sdk::{
     language::{analyzer::{
         LanguageAnalysisPolicy,
-        LanguageAnalysisResult,
-        LanguageAnalysisPolicyError
+        LanguageAnalysisResult, LanguageAnalysisPolicyError,
     }, ivertex::{VertexType, VertexCategories, IVertex, ToSignature}},
-    utils, GRAPH_FILE_EXTENSION
-};
-
-use suzaku_extension_sdk::{
-    VERTEX_FILE_EXTENSION
+    GRAPH_FILE_EXTENSION
 };
 
 use super::vertex::JavaVertex;
@@ -41,49 +36,69 @@ impl GraphNode {
         self.ty.as_ref().unwrap().to_signature()
     }
 
+    pub fn get_package_name(&self) -> String {
+        match &self.package {
+            Some(p) => p.to_string(),
+            None => String::from("others")
+        }
+    }
+
     pub fn to_graphviz_node(&self) -> String {
         let node_name = self.get_signature();
-        let label = self.get_name();
+        let label = self.get_signature();
+        let group = self.get_package_name();
 
-        let mut rows: Vec<String> = Vec::new();
-        // for defination in &self.defines {
-        //     rows.push(format!("<tr><td align='left'>\"{}\"</td></tr>", defination.to_string()));
-        // }
-
-        format!("{} [label=<\
-        <table border='1' cellborder='0' cellspacing='1'>\
-            <tr><td align='center'><b>{}</b></td></tr>\
-            {}\
-        </table>>];", node_name, label, rows.join(""))
+        format!("{} [label={}, group={}];", node_name, label, group)
     }
 }
 
 pub struct JavaAnalyzer {
-    graph_nodes: HashMap<String, GraphNode>,
     depends: Vec<VertexType>,
+    graph_nodes: HashMap<String, GraphNode>
 }
 
 impl JavaAnalyzer {
+    pub fn load_vertex_from_file(&self, path: &PathBuf) -> LanguageAnalysisResult<HashMap<VertexCategories, Vec<JavaVertex>>> {
+        let context_str = fs::read_to_string(path).expect("should read context of file");
+
+        match serde_json::from_str(&context_str) {
+            Ok(contents) => Ok(contents),
+            Err(err) => Err(LanguageAnalysisPolicyError {})
+        }
+    }
+
     pub fn analysis(&mut self, vertexes: &HashMap<VertexCategories, Vec<JavaVertex>>) -> LanguageAnalysisResult<()> {
-        let package = match vertexes.get(&VertexCategories::Package) {
-            Some(jvs) => match jvs.get(0) {
-                Some(jv) => jv.get_type(),
+        let get_package = |vt: Option<&VertexType>| -> Option<VertexType> {
+            match vt {
+                Some(ty) => match &ty {
+                    &VertexType::Class(td, _, _, _, _, _) 
+                    | &VertexType::Interface(td, _, _, _, _)
+                    | &VertexType::Constructor(td, _, _, _)
+                    | &VertexType::Field(td, _, _, _, _)
+                    | &VertexType::Method(td, _, _, _, _, _) => 
+                        Some(VertexType::Package(td.package.clone())),
+                    
+                    &VertexType::MethodCall(_, caller, _, _) => None, // TODO: need to implement collecting information of caller
+                    &VertexType::CreatorCall(pkg, _, _) => Some(VertexType::Package(pkg.clone())),
+                    _ => None
+                },
                 None => None
-            },
-            None => None
+            }
+        };
+
+        let get_ty = |vt: Option<&VertexType>| -> Option<VertexType> {
+            match vt {
+                Some(t) => Some(t.clone()),
+                None => None
+            }
         };
 
         if let Some(jvs) = vertexes.get(&VertexCategories::Classes) {
             for jv in jvs {
+                let vt = jv.get_type();
                 let mut graph_node = GraphNode {
-                    package: match package {
-                        Some(ty) => Some(ty.clone()),
-                        None => None
-                    },
-                    ty: match jv.get_type() {
-                        Some(t) => Some(t.clone()),
-                        None => None
-                    },
+                    package: get_package(vt),
+                    ty: get_ty(vt),
                     defines: Vec::new(),
                     callouts: Vec::new()
                 };
@@ -117,14 +132,8 @@ impl JavaAnalyzer {
         if let Some(jvs) = vertexes.get(&VertexCategories::Interfaces) {
             for jv in jvs {
                 let mut graph_node = GraphNode {
-                    package: match package {
-                        Some(ty) => Some(ty.clone()),
-                        None => None
-                    },
-                    ty: match jv.get_type() {
-                        Some(t) => Some(t.clone()),
-                        None => None
-                    },
+                    package: get_package(jv.get_type()),
+                    ty: get_package(jv.get_type()),
                     defines: Vec::new(),
                     callouts: Vec::new()
                 };
@@ -161,22 +170,6 @@ impl JavaAnalyzer {
         }
     }
 
-    pub fn load_vertex_from_file(&self, path: &PathBuf) -> LanguageAnalysisResult<HashMap<VertexCategories, Vec<JavaVertex>>> {
-        let context_str = fs::read_to_string(path).expect("should read context of file");
-        
-        let mut deserializer = serde_json::Deserializer::from_str(&context_str);
-        deserializer.disable_recursion_limit();
-        let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
-
-        match Value::deserialize(deserializer) {
-            Ok(v) => match serde_json::from_value(v) {
-                Ok(contents) => Ok(contents),
-                Err(e) => Err(LanguageAnalysisPolicyError {})
-            },
-            Err(e) => Err(LanguageAnalysisPolicyError {})
-        }
-    }
-
     pub fn generate_graphviz_dot_file(&self, file_path: &PathBuf) -> LanguageAnalysisResult<()> {
         let mut lines: Vec<String> = vec!["digraph A {".to_string()];
         lines.push("  node [shape=plaintext fontname=\"Sans serif\" fontsize=\"8\"];".to_string());
@@ -198,6 +191,7 @@ impl JavaAnalyzer {
         }
         Ok(())
     }
+
 }
 
 impl LanguageAnalysisPolicy for JavaAnalyzer {
@@ -208,41 +202,58 @@ impl LanguageAnalysisPolicy for JavaAnalyzer {
         }
     }
     
-    fn execute(&mut self, data: &Vec<PathBuf>, output: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
-        let mut filelist: Vec<PathBuf> = Vec::new();
-        for d in data {
-            if d.is_file() {
-                filelist.push(d.to_path_buf());
-            } else {
-                let filename_pattern = format!("{}/**/*.{}", d.to_str().unwrap(), VERTEX_FILE_EXTENSION);
-                if let Some(mut files) = utils::list_files(d, filename_pattern.as_str(), &Vec::new()) {
-                    filelist.append(&mut files);
+    fn execute(&mut self, data: &PathBuf, output: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
+        if data.is_file() {
+            print!("# loading vertexes ... ");
+            let load_result = self.load_vertex_from_file(data);
+            match load_result {
+                Ok(all_vertexes) => {
+                    println!("done"); // loading vertexes done
+    
+                    print!("# analysing ... ");
+                    if let Err(err) = self.analysis(&all_vertexes) {
+                        println!("failed. Error: {:?}", err);
+                        return Err(err);
+                    } else {
+                        println!("done")
+                    }
+            
+                    // outputs
+                    let mut sorted_graph_nodes: Vec<_> = self.graph_nodes.iter().collect();
+                    sorted_graph_nodes.sort_by_key(|k| k.0);
+            
+                    for (key, node) in sorted_graph_nodes {
+                        println!("# [{}] {}", key, node.ty.as_ref().unwrap().to_string());
+            
+                        let mut sorted_defines = node.defines.clone();
+                        sorted_defines.sort_by(|i, j| i.to_signature().cmp(&j.to_signature()));
+            
+                        for def in sorted_defines {
+                            println!(" * [{}] {}", def.to_signature(), def.to_string())
+                        }
+            
+                        let mut sorted_callouts = node.callouts.clone();
+                        sorted_callouts.sort_by(|i, j| i.to_signature().cmp(&j.to_signature()));
+            
+                        for call in sorted_callouts {
+                            println!(" * [{}] {}", call.to_signature(), call.to_string());
+                        }
+                    }
+        
+                    // save graphviz file
+                    let dot_file_path = output.join(format!("{}.{}", "graphviz", GRAPH_FILE_EXTENSION));
+                    _ = self.generate_graphviz_dot_file(&dot_file_path);
+            
+                    return Ok(dot_file_path);
+                },
+                Err(err) => {
+                    println!("failed"); // loading vertexes failed
+                    println!("{:?}", err);
+                    return Err(LanguageAnalysisPolicyError {})
                 }
             }
         }
 
-        for vertex_file in filelist {
-            if let Ok(vertexes) = self.load_vertex_from_file(&PathBuf::from(vertex_file)) {
-                if let Err(err) = self.analysis(&vertexes) {
-                    return Err(err);
-                }
-            }
-        }
-
-        for (key, node) in &self.graph_nodes {
-            println!("# {}", key);
-            for def in &node.defines {
-                println!(" * [{}] {}", def.to_signature(), def.to_string())
-            }
-
-            for call in &node.callouts {
-                println!(" * [{}] {}", call.to_signature(), call.to_string());
-            }
-        }
-
-        let dot_file_path = output.join(format!("{}.{}", "graphviz", GRAPH_FILE_EXTENSION));
-        _ = self.generate_graphviz_dot_file(&dot_file_path);
-
-        Ok(dot_file_path)
+        Err(LanguageAnalysisPolicyError {})
     }
 }

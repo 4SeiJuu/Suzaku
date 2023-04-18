@@ -20,7 +20,7 @@ use suzaku_extension_sdk::{
             LanguageAnalysisPolicy,
             LanguageAnalysisResult,
             LanguageAnalysisPolicyError
-        },
+        }, mapper::LanguageMapPolicy,
     },
     utils,
 };
@@ -119,6 +119,20 @@ pub fn data_clean(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec
         }
     }
 
+    fn mapping(metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
+        print!(" * data mapping ... ");
+        match languages::ExtensionFactory::get_data_mapping_policy("java") {
+            Some(mut policy) => {
+                match policy.execute(metadata, output) {
+                    Ok(vertexes_file_path) => Ok(vertexes_file_path),
+                    Err(err) => Err(LanguageDataCleanPolicyError{})
+                }
+            },
+            None => Err(LanguageDataCleanPolicyError {})
+        }
+    }
+
+    // collect metadata files
     let mut metadata_files: Vec<PathBuf> = Vec::new();
     for metadata in metadatas {
         if metadata.is_file() {
@@ -131,6 +145,7 @@ pub fn data_clean(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec
         }
     }
 
+    // cleaning each metadata file
     let mut index: usize = 1;
     let total: usize = metadata_files.len();
     for metadata_file in metadata_files {
@@ -139,12 +154,14 @@ pub fn data_clean(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec
         }
         index += 1;
     }
-    Ok(vertex_dir)
+
+    // mapping
+    mapping(&vertex_dir, &output_dir)
 }
 
-pub fn analysis(vertex_dir: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBuf>) -> LanguageAnalysisResult<PathBuf> {
+pub fn analysis(vertexes_file: &PathBuf, output_dir: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
     match languages::ExtensionFactory::get_analysis_policy("java") {
-        Some(mut analyzer) => analyzer.execute(vertex_dir, output_dir),
+        Some(mut analyzer) => analyzer.execute(vertexes_file, output_dir),
         None => Err(LanguageAnalysisPolicyError {})
     }
 }

@@ -43,21 +43,16 @@ impl JavaParserPolicy {
             let lexer = JavaLexer::new(data);
             let token_source = CommonTokenStream::new(lexer);
     
-            let mut parser_listener: ParserListener = ParserListener::new();
             let mut file_node = JavaNode::new(JavaNodeType::File);
             file_node.set_attr(src.to_str().unwrap());
-            parser_listener.stack_mut().push(file_node);
+            let parser_listener: ParserListener = ParserListener::new(file_node);
     
             let mut parser = JavaParser::new(token_source);
-            let _listener_id = parser.add_parse_listener(Box::new(parser_listener));
-    
-            let result = match parser.compilationUnit() {
-                Ok(_) => {
-                    Some(parser.remove_parse_listener(_listener_id).stack().top().unwrap().clone())
-                },
-                _ => None
-            };
-            return result
+            let listener_id = parser.add_parse_listener(Box::new(parser_listener));
+            parser.compilationUnit();
+
+            let mut parser_listener = parser.remove_parse_listener(listener_id);
+            return parser_listener.results();
         }
         None
     }

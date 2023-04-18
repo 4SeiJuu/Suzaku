@@ -22,17 +22,24 @@ pub struct ParserListener {
 }
 
 impl ParserListener {
-    pub fn new() -> Self {
+    pub fn new(root_node: JavaNode) -> Self {
+        let mut st = Stack::new();
+        st.push(root_node);
         ParserListener {
-            stack: Stack::new(),
+            stack: st,
         }
     }
 
-    pub fn stack(&self) -> &Stack<JavaNode> {
+    pub fn results(&mut self) -> Option<JavaNode> {
+        self.stack_mut().pop()
+    }
+
+
+    fn stack(&self) -> &Stack<JavaNode> {
         &&self.stack
     }
 
-    pub fn stack_mut(&mut self) -> &mut Stack<JavaNode> {
+    fn stack_mut(&mut self) -> &mut Stack<JavaNode> {
         &mut self.stack
     }
 

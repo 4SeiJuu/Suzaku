@@ -42,8 +42,8 @@ pub struct JavaDataCleanListener {
 }
 
 impl JavaDataCleanListener {
-    pub fn results(&self) -> &HashMap<VertexCategories, Vec<JavaVertex>> {
-        &self.vertexes
+    pub fn results(&self) -> HashMap<VertexCategories, Vec<JavaVertex>> {
+        self.vertexes.clone()
     }
 
     fn enter(&mut self, node: &JavaNode) {
@@ -106,28 +106,28 @@ impl JavaDataCleanListener {
             },
             JavaNodeType::EnumDeclaration => None,
             JavaNodeType::FieldDeclaration => {
-                if let VertexType::Field(_, _, _, _, _, _) = ty.unwrap() {
+                if let VertexType::Field(_, _, _, _, _) = ty.unwrap() {
                     Some((VertexCategories::Fields, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::MethodDeclaration | JavaNodeType::InterfaceMethodDeclaration => {
-                if let VertexType::Method(_, _, _, _, _, _, _) = ty.unwrap() {
+                if let VertexType::Method(_, _, _, _, _, _) = ty.unwrap() {
                     Some((VertexCategories::Methods, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::ConstructorDeclaration => {
-                if let VertexType::Constructor(_, _, _, _, _) = ty.unwrap() {
+                if let VertexType::Constructor(_, _, _, _) = ty.unwrap() {
                     Some((VertexCategories::Constructors, self.stack.pop()))
                 } else {
                     None
                 }
             },
             JavaNodeType::Creator => {
-                if let VertexType::Creator(_, _, _) = ty.unwrap() {
+                if let VertexType::CreatorCall(_, _, _) = ty.unwrap() {
                     Some((VertexCategories::CreatorCalls, self.stack.pop()))
                 } else {
                     None
@@ -199,7 +199,7 @@ impl JavaDataCleanListener {
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
-        let mut extends: Option<TypeDescriptor> = None;
+        let mut extends: Vec<TypeDescriptor> = Vec::new();
         let mut implements: Vec<TypeDescriptor> = Vec::new();
 
         for member in node.get_members() {
@@ -214,7 +214,7 @@ impl JavaDataCleanListener {
                     ident = Some(attr.to_string());
                 },
                 JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
-                    extends = match self.get_dependency_type_info_from_imports(attr.as_str()) {
+                    if let Some(extend) = match self.get_dependency_type_info_from_imports(attr.as_str()) {
                         Some(td) => Some(TypeDescriptor {
                             package: td.package.clone(), 
                             name: vec![attr.to_string()]
@@ -223,7 +223,9 @@ impl JavaDataCleanListener {
                             package: Vec::new(), 
                             name: vec![attr.to_string()]
                         })
-                    };
+                    } {
+                        extends.push(extend);
+                    }
                 },
                 JavaNodeType::TypeList => if let Some(attr) = member.get_attr() {
                     let implement = match self.get_dependency_type_info_from_imports(attr.as_str()) {
@@ -253,7 +255,7 @@ impl JavaDataCleanListener {
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
-        let mut extends: Option<TypeDescriptor> = None;
+        let mut extends: Vec<TypeDescriptor> = Vec::new();
 
         for member in node.get_members() {
             match member.get_node_type() {
@@ -267,16 +269,16 @@ impl JavaDataCleanListener {
                     ident = Some(attr.to_string());
                 },
                 JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
-                    extends = match self.get_dependency_type_info_from_imports(attr.as_str()) {
-                        Some(td) => Some(TypeDescriptor {
+                    extends.push(match self.get_dependency_type_info_from_imports(attr.as_str()) {
+                        Some(td) => TypeDescriptor {
                             package: td.package.clone(), 
                             name: vec![attr.to_string()]
-                        }),
-                        None => Some(TypeDescriptor {
+                        },
+                        None => TypeDescriptor {
                             package: Vec::new(), 
                             name: vec![attr.to_string()]
-                        })
-                    };
+                        }
+                    });
                 },
                 _ => ()
             }
@@ -338,8 +340,8 @@ impl JavaDataCleanListener {
         };
 
         let ty = match self.get_type_name() {
-            Some(type_name) => VertexType::Field(package, type_name, modifiers.clone(), ty, variable_id, variable_init),
-            None => VertexType::Field(package, Vec::new(), modifiers.clone(), ty, variable_id, variable_init)
+            Some(type_name) => VertexType::Field(TypeDescriptor { package: package, name: type_name }, modifiers.clone(), ty, variable_id, variable_init),
+            None => VertexType::Field(TypeDescriptor { package: package, name: Vec::new() }, modifiers.clone(), ty, variable_id, variable_init)
         };
         self.push_to_stack(JavaVertex::new(ty));
     }
@@ -421,8 +423,8 @@ impl JavaDataCleanListener {
         };
 
         let ty = match self.get_type_name() {
-            Some(type_name) => VertexType::Method(package, type_name, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
-            None => VertexType::Method(package, Vec::new(), annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
+            Some(type_name) => VertexType::Method(TypeDescriptor { package: package, name: type_name }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
+            None => VertexType::Method(TypeDescriptor { package: package, name: Vec::new() }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
         };
 
         self.push_to_stack(JavaVertex::new(ty));
@@ -497,7 +499,7 @@ impl JavaDataCleanListener {
             None => Vec::new()
         };
 
-        let ty = VertexType::Creator(package, creator_name, rests);
+        let ty = VertexType::CreatorCall(package, creator_name, rests);
         self.push_to_stack(JavaVertex::new(ty));
     }
 
@@ -558,8 +560,8 @@ impl JavaDataCleanListener {
         };
 
         let ty = match self.get_type_name() {
-            Some(type_name) => VertexType::Constructor(package, type_name, modifiers, ident.unwrap().to_string(), params),
-            None => VertexType::Constructor(package, Vec::new(), modifiers, ident.unwrap().to_string(), params),
+            Some(type_name) => VertexType::Constructor(TypeDescriptor { package: package, name: type_name }, modifiers, ident.unwrap().to_string(), params),
+            None => VertexType::Constructor(TypeDescriptor { package: package, name: Vec::new() }, modifiers, ident.unwrap().to_string(), params),
         };
 
         self.push_to_stack(JavaVertex::new(ty));
@@ -634,51 +636,30 @@ impl JavaDataCleanListener {
     }
 }
 
-pub struct JavaDataCleanPolicy {}
+pub struct JavaDataCleanPolicy;
 
 impl<'a> JavaDataCleanPolicy {
     pub fn analysis(&mut self, node: &JavaNode) -> LanguageDataCleanResult<HashMap<VertexCategories, Vec<JavaVertex>>> {
         assert_eq!(node.get_node_type(), JavaNodeType::File);
 
-        let mut listener = JavaDataCleanListener{
+        let mut node_listener = JavaDataCleanListener{
             vertexes: HashMap::new(),
             stack: Stack::new(),
         };
-        JavaDataCleanPolicy::tree_walker(&node, &mut listener);
-        self.mapping_types(&mut listener);
-        Ok(listener.results().clone())
+        JavaDataCleanPolicy::node_tree_walker(&node, &mut node_listener);
+
+        let data = node_listener.results();
+        std::mem::drop(node_listener);
+
+        Ok(data)
     }
 
-    fn tree_walker(node: &JavaNode, listener: &mut JavaDataCleanListener) {
+    fn node_tree_walker(node: &JavaNode, listener: &mut JavaDataCleanListener) {
         listener.enter(&node);
         for child in node.get_members() {
-            JavaDataCleanPolicy::tree_walker(child, listener);
+            JavaDataCleanPolicy::node_tree_walker(child, listener);
         }
         listener.exit(&node);
-    }
-
-    fn mapping_types(&self, listener: &mut JavaDataCleanListener) {
-
-    }
-
-    fn get_dependency_type_info_from_definations(&self, listener: &JavaDataCleanListener, short_name: &str) -> Option<TypeDescriptor> {
-        let re = Regex::new(r"[\[|<].*[\]|>]").unwrap();
-        let short_name = re.replace_all(short_name, "");
-
-        if let Some(classes) = listener.vertexes.get(&VertexCategories::Classes) {
-            for clz in classes {
-                // package, ancestor types, annotations, modifiers, name, extends, implements
-                if let VertexType::Class(ancestors, _, _, name, _, _) = clz.get_type().unwrap() {
-                    if name.as_str() == short_name {
-                        let mut clz_name = ancestors.name.clone();
-                        clz_name.push(name.clone());
-                        return Some(TypeDescriptor { package: ancestors.package.clone(), name: clz_name });
-                    }
-                }
-            }
-        }
-        
-        None
     }
 }
 

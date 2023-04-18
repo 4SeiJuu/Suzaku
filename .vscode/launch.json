@@ -70,7 +70,7 @@
             "args": [
                 "analysis",
                 "-v",
-                "./temp/vertexes",
+                "./temp/all.vertex",
                 "-o",
                 "./temp"
             ],

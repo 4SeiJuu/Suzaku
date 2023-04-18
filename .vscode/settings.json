@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./extension-sdk/Cargo.toml",
+        "./language-extensions/Cargo.toml"
+    ]
+}

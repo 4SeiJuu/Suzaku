@@ -6,4 +6,5 @@ mod vertex;
 
 pub mod parser_policy;
 pub mod data_clean_policy;
+pub mod mapper_policy;
 pub mod analyzer_policy;

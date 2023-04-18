@@ -6,5 +6,5 @@ pub type LanguageAnalysisResult<T> = std::result::Result<T, LanguageAnalysisPoli
 
 pub trait LanguageAnalysisPolicy {
     fn new() -> Self;
-    fn execute(&mut self, data: &Vec<PathBuf>, output: &PathBuf) -> LanguageAnalysisResult<PathBuf>;
+    fn execute(&mut self, data: &PathBuf, output: &PathBuf) -> LanguageAnalysisResult<PathBuf>;
 }
