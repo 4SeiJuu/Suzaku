@@ -6,7 +6,7 @@ use crate::utils::vec_join;
 use super::super::utils;
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Copy, EnumIter)]
-pub enum VertexCategories {
+pub enum ElementCategories {
     Package,
     Imports,
     Classes,
@@ -19,8 +19,8 @@ pub enum VertexCategories {
     Constructors,
 }
 
-impl AsRef<VertexCategories> for VertexCategories {
-    fn as_ref(&self) -> &VertexCategories {
+impl AsRef<ElementCategories> for ElementCategories {
+    fn as_ref(&self) -> &ElementCategories {
         self
     }
 }
@@ -103,12 +103,36 @@ impl ToString for ParamDescriptor {
     }
 }
 
+pub struct Caller {
+    ty: TypeDescriptor,
+    name: Option<String>
+}
+
+impl ToString for Caller {
+    fn to_string(&self) -> String {
+        match &self.name {
+            Some(n) => format!("{} {}", self.ty.to_string(), n),
+            None => self.ty.to_string()
+        }
+    }
+}
+
+impl ToSignature for Caller {
+    fn to_signature(&self) -> String {
+        match &self.name {
+            Some(n) => format!("{}_{}", self.ty.to_signature(), n),
+            None => self.ty.to_signature()
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum VertexType {
+pub enum Elements {
     // package name
     Package(Vec<String>),
     // package name, type name
     Import(TypeDescriptor),
+
     // ancestors, annotations, modifiers, name, extends, implements
     Class(TypeDescriptor, Vec<String>, Vec<String>, String, Vec<TypeDescriptor>, Vec<TypeDescriptor>),
     // ancestors, annotations, modifiers, name, extends
@@ -117,11 +141,10 @@ pub enum VertexType {
     Annotation,
     Record,
 
-    // ancestors, modifiers, field type, field name, field value
-    Field(TypeDescriptor, Vec<String>, Option<TypeDescriptor>, Option<String>, Option<String>), 
-
     // ancestors, modifiers, ident, params(modifiers, type, name)
     Constructor(TypeDescriptor, Vec<String>, String, Vec<ParamDescriptor>),
+    // ancestors, modifiers, field type, field name, field value
+    Field(TypeDescriptor, Vec<String>, Option<TypeDescriptor>, Option<String>, Option<String>), 
     // ancestors, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
     Method(TypeDescriptor, Option<String>, Vec<String>, TypeDescriptor, String, Vec<ParamDescriptor>),
     
@@ -133,13 +156,13 @@ pub enum VertexType {
     MethodCall(Option<String>, Option<String>, String, Vec<String>),
 }
 
-impl AsRef<VertexType> for VertexType {
-    fn as_ref(&self) -> &VertexType {
+impl AsRef<Elements> for Elements {
+    fn as_ref(&self) -> &Elements {
         self
     }
 }
 
-impl ToString for VertexType {
+impl ToString for Elements {
     fn to_string(&self) -> String {
         let vec_to_string = |v: &Vec<String>, sep: &str| -> String {
             match utils::vec_join(v, sep) {
@@ -163,38 +186,41 @@ impl ToString for VertexType {
         };
 
         match self {
-            VertexType::Package(idents) => vec_to_string(&idents, "."),
-            VertexType::Import(descriptor) => descriptor.to_string(),
-            VertexType::Class(ancestors, _, _, name, _, _) => 
+            Elements::Package(idents) => vec_to_string(&idents, "."),
+            Elements::Import(descriptor) => descriptor.to_string(),
+            /* types */
+            Elements::Class(ancestors, _, _, name, _, _) => 
                 format!("{}.{}::{}", ancestors.get_package_str(), ancestors.get_name_str(), name),
-            VertexType::Interface(ancestors, _, _, name, _) => 
+            Elements::Interface(ancestors, _, _, name, _) => 
                 format!("{}.{}::{}", ancestors.get_package_str(), ancestors.get_name_str(), name),
-            VertexType::Field(ancestors, _, ty, name, value) => match value {
+            /* members */
+            Elements::Field(ancestors, _, ty, name, value) => match value {
                 Some(v) => format!("{} {}::{} = {}", type_descriptor_option_to_string(ty), ancestors.to_string(), string_option_to_string(name), v),
                 None => format!("{} {}.{}", type_descriptor_option_to_string(ty), ancestors.to_string(), string_option_to_string(name))
             },
-            VertexType::Method(ancestors, _, _, ret_ty, name, params) => {
-                let mut param_strs: Vec<String> = Vec::new();
-                for param in params {
-                    param_strs.push(param.to_string());
-                }
-                format!("{} {}.{}({})", ret_ty.to_string(), ancestors.to_string(), name, vec_to_string(&param_strs, ", "))
-            },
-            VertexType::Constructor(ancestors, _, name, params) => {
+            Elements::Constructor(ancestors, _, name, params) => {
                 let mut param_strs: Vec<String> = Vec::new();
                 for param in params {
                     param_strs.push(param.to_string());
                 }
                 format!("{}::{}({})", ancestors.to_string(), name, vec_to_string(&param_strs, ", "))
             },
-            VertexType::CreatorCall(package, name, rest) => format!("{}.{}({})", vec_to_string(package, "."), vec_to_string(name, "."), vec_to_string(rest, ", ")),
-            VertexType::MethodCall(_, caller, name, params) => format!("{}.{}({})", string_option_to_string(caller), name, vec_to_string(params, ", ")),
+            Elements::Method(ancestors, _, _, ret_ty, name, params) => {
+                let mut param_strs: Vec<String> = Vec::new();
+                for param in params {
+                    param_strs.push(param.to_string());
+                }
+                format!("{} {}.{}({})", ret_ty.to_string(), ancestors.to_string(), name, vec_to_string(&param_strs, ", "))
+            },
+            /* call outs */
+            Elements::CreatorCall(package, name, rest) => format!("{}.{}({})", vec_to_string(package, "."), vec_to_string(name, "."), vec_to_string(rest, ", ")),
+            Elements::MethodCall(_, caller, name, params) => format!("{}.{}({})", string_option_to_string(caller), name, vec_to_string(params, ", ")),
             _ => String::from("invalid value")
         }
     }
 }
 
-impl ToSignature for VertexType {
+impl ToSignature for Elements {
     fn to_signature(&self) -> String {
         let vec_to_string = |v: &Vec<String>, sep: &str| -> String {
             match utils::vec_join(v, sep) {
@@ -211,34 +237,37 @@ impl ToSignature for VertexType {
         };
 
         match self {
-            VertexType::Package(idents) => 
+            Elements::Package(idents) => 
                 format!("PACKAGE_{}", vec_to_string(&idents, "_")),
-            VertexType::Import(descriptor) => 
+            Elements::Import(descriptor) => 
                 format!("IMPORT_{}", descriptor.to_signature()),
-            VertexType::Class(ancestors, _, _, name, _, _) => 
+            /* types */
+            Elements::Class(ancestors, _, _, name, _, _) => 
                 format!("CLASS_{}_{}", ancestors.to_signature(), name),
-            VertexType::Interface(ancestors, _, _, name, _) => 
+            Elements::Interface(ancestors, _, _, name, _) => 
                 format!("INTERFACE_{}_{}", ancestors.to_signature(), name),
-            VertexType::Field(ancestors, _, _, name, _) => 
+            /* members */
+            Elements::Field(ancestors, _, _, name, _) => 
                 format!("FIELD_{}_{}", ancestors.to_signature(), string_option_to_string(name)),
-            VertexType::Method(ancestors, _, _, ret_ty, name, _) => 
-                format!("METHOD_{}_{}_{}", ret_ty.to_string(), ancestors.to_signature(), name),
-            VertexType::MethodCall(_, caller, name, _) => 
-                format!("METHOD_CALL_{}_{}", string_option_to_string(caller), name),
-            VertexType::CreatorCall(package, name, _) => 
-                format!("CREATOR_{}_{}", vec_to_string(package, "_"), vec_to_string(name, "_")),
-            VertexType::Constructor(ancestors, _, name, _) =>
+            Elements::Constructor(ancestors, _, name, _) =>
                 format!("CONSTRUCTOR_{}_{}", ancestors.to_signature(), name),
+            Elements::Method(ancestors, _, _, ret_ty, name, _) => 
+                format!("METHOD_{}_{}_{}", ret_ty.to_string(), ancestors.to_signature(), name),
+            /* call outs */
+            Elements::MethodCall(_, caller, name, _) => 
+                format!("METHOD_CALL_{}_{}", string_option_to_string(caller), name),
+            Elements::CreatorCall(package, name, _) => 
+                format!("CREATOR_{}_{}", vec_to_string(package, "_"), vec_to_string(name, "_")),
             _ => String::from("invalid value")
         }
     }
 }
 
-pub trait IVertex {
-    fn new(ty: VertexType) -> Self where Self: Sized;
-    fn set_type(&mut self, ty: Option<VertexType>);
-    fn get_type(&self) -> Option<&VertexType>;
-    fn get_type_mut(&mut self) -> Option<&mut VertexType>;
-    fn get_member_by_category(&self, category: VertexCategories) -> Option<&Vec<Box<Self>>>;
-    fn get_member_by_category_mut(&mut self, category: VertexCategories) -> Option<&mut Vec<Box<Self>>>;
+pub trait IElement {
+    fn new(ty: Elements) -> Self where Self: Sized;
+    fn set_type(&mut self, ty: Option<Elements>);
+    fn get_type(&self) -> Option<&Elements>;
+    fn get_type_mut(&mut self) -> Option<&mut Elements>;
+    fn get_member_by_category(&self, category: ElementCategories) -> Option<&Vec<Box<Self>>>;
+    fn get_member_by_category_mut(&mut self, category: ElementCategories) -> Option<&mut Vec<Box<Self>>>;
 }

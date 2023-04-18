@@ -22,14 +22,10 @@ use suzaku_extension_sdk::{
             LanguageAnalysisPolicyError
         }, mapper::LanguageMapPolicy,
     },
-    utils,
-};
-
-use suzaku_extension_sdk::{
+    utils, 
     METADATA_FOLDER_NAME,
     METADATA_FILE_EXTENSION,
-    VERTEX_FOLDER_NAME,
-    VERTEX_FILE_EXTENSION
+    ELEMENT_FOLDER_NAME,
 };
 
 mod languages;
@@ -90,7 +86,7 @@ pub fn parse(sources: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBu
 }
 
 pub fn data_clean(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBuf>) -> LanguageDataCleanResult<PathBuf> {
-    let vertex_dir = output_dir.join(VERTEX_FOLDER_NAME);
+    let vertex_dir = output_dir.join(ELEMENT_FOLDER_NAME);
     if !vertex_dir.exists() {
         if let Err(_) = fs::create_dir_all(&vertex_dir) {
             return Err(LanguageDataCleanPolicyError {});

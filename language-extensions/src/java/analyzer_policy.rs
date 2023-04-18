@@ -1,17 +1,20 @@
 use std::{path::PathBuf, collections::HashMap, fs::{File, self}, io::Write};
 
-use serde::Deserialize;
-use serde_json::Value;
-
 use suzaku_extension_sdk::{
     language::{analyzer::{
         LanguageAnalysisPolicy,
         LanguageAnalysisResult, LanguageAnalysisPolicyError,
-    }, ivertex::{VertexType, VertexCategories, IVertex, ToSignature}},
+    }, element::{Elements, ElementCategories, IElement, ToSignature}},
     GRAPH_FILE_EXTENSION
 };
 
-use super::vertex::JavaVertex;
+use super::{
+    element::JavaElement,
+    graphviz::{
+        GraphVertex,
+        GraphEdge
+    }
+};
 
 enum JavaAnalysisedResultCategory {
     Depends,
@@ -19,46 +22,13 @@ enum JavaAnalysisedResultCategory {
     CallOuts
 }
 
-#[derive(Debug)]
-struct GraphNode {
-    package: Option<VertexType>,
-    ty: Option<VertexType>,
-    defines: Vec<VertexType>,
-    callouts: Vec<VertexType>
-}
-
-impl GraphNode {
-    pub fn get_name(&self) -> String {
-        self.ty.as_ref().unwrap().to_string()
-    }
-
-    pub fn get_signature(&self) -> String {
-        self.ty.as_ref().unwrap().to_signature()
-    }
-
-    pub fn get_package_name(&self) -> String {
-        match &self.package {
-            Some(p) => p.to_string(),
-            None => String::from("others")
-        }
-    }
-
-    pub fn to_graphviz_node(&self) -> String {
-        let node_name = self.get_signature();
-        let label = self.get_signature();
-        let group = self.get_package_name();
-
-        format!("{} [label={}, group={}];", node_name, label, group)
-    }
-}
-
 pub struct JavaAnalyzer {
-    depends: Vec<VertexType>,
-    graph_nodes: HashMap<String, GraphNode>
+    depends: Vec<GraphEdge>,
+    elements: HashMap<String, GraphVertex>
 }
 
 impl JavaAnalyzer {
-    pub fn load_vertex_from_file(&self, path: &PathBuf) -> LanguageAnalysisResult<HashMap<VertexCategories, Vec<JavaVertex>>> {
+    pub fn load_vertex_from_file(&self, path: &PathBuf) -> LanguageAnalysisResult<HashMap<ElementCategories, Vec<JavaElement>>> {
         let context_str = fs::read_to_string(path).expect("should read context of file");
 
         match serde_json::from_str(&context_str) {
@@ -67,36 +37,38 @@ impl JavaAnalyzer {
         }
     }
 
-    pub fn analysis(&mut self, vertexes: &HashMap<VertexCategories, Vec<JavaVertex>>) -> LanguageAnalysisResult<()> {
-        let get_package = |vt: Option<&VertexType>| -> Option<VertexType> {
+    pub fn analysis(&mut self, vertexes: &HashMap<ElementCategories, Vec<JavaElement>>) -> LanguageAnalysisResult<()> {
+        let get_package = |vt: Option<&Elements>| -> Option<Elements> {
             match vt {
                 Some(ty) => match &ty {
-                    &VertexType::Class(td, _, _, _, _, _) 
-                    | &VertexType::Interface(td, _, _, _, _)
-                    | &VertexType::Constructor(td, _, _, _)
-                    | &VertexType::Field(td, _, _, _, _)
-                    | &VertexType::Method(td, _, _, _, _, _) => 
-                        Some(VertexType::Package(td.package.clone())),
-                    
-                    &VertexType::MethodCall(_, caller, _, _) => None, // TODO: need to implement collecting information of caller
-                    &VertexType::CreatorCall(pkg, _, _) => Some(VertexType::Package(pkg.clone())),
+                    // definations
+                    &Elements::Class(td, _, _, _, _, _) 
+                    | &Elements::Interface(td, _, _, _, _)
+                    | &Elements::Constructor(td, _, _, _)
+                    | &Elements::Field(td, _, _, _, _)
+                    | &Elements::Method(td, _, _, _, _, _) => 
+                        Some(Elements::Package(td.package.clone())),
+                    // call outs
+                    // TODO: need to implement collecting information of caller
+                    &Elements::MethodCall(_, caller, _, _) => None, 
+                    &Elements::CreatorCall(pkg, _, _) => Some(Elements::Package(pkg.clone())),
                     _ => None
                 },
                 None => None
             }
         };
 
-        let get_ty = |vt: Option<&VertexType>| -> Option<VertexType> {
+        let get_ty = |vt: Option<&Elements>| -> Option<Elements> {
             match vt {
                 Some(t) => Some(t.clone()),
                 None => None
             }
         };
 
-        if let Some(jvs) = vertexes.get(&VertexCategories::Classes) {
+        if let Some(jvs) = vertexes.get(&ElementCategories::Classes) {
             for jv in jvs {
                 let vt = jv.get_type();
-                let mut graph_node = GraphNode {
+                let mut graph_node = GraphVertex {
                     package: get_package(vt),
                     ty: get_ty(vt),
                     defines: Vec::new(),
@@ -104,34 +76,34 @@ impl JavaAnalyzer {
                 };
 
                 // definations
-                if let Some(members) = jv.get_member_by_category(VertexCategories::Constructors) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::Constructors) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::Defines, members);
                 }
 
-                if let Some(members) = jv.get_member_by_category(VertexCategories::Fields) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::Fields) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::Defines, members);
                 }
 
-                if let Some(members) = jv.get_member_by_category(VertexCategories::Methods) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::Methods) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::Defines, members);
                 }
 
                 // call outs
-                if let Some(members) = jv.get_member_by_category(VertexCategories::CreatorCalls) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::CreatorCalls) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::CallOuts, members);
                 }
 
-                if let Some(members) = jv.get_member_by_category(VertexCategories::MethodCalls) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::MethodCalls) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::CallOuts, members);
                 }
 
-                self.graph_nodes.insert(graph_node.get_signature(), graph_node);
+                self.elements.insert(graph_node.get_signature(), graph_node);
             }
         }
 
-        if let Some(jvs) = vertexes.get(&VertexCategories::Interfaces) {
+        if let Some(jvs) = vertexes.get(&ElementCategories::Interfaces) {
             for jv in jvs {
-                let mut graph_node = GraphNode {
+                let mut graph_node = GraphVertex {
                     package: get_package(jv.get_type()),
                     ty: get_package(jv.get_type()),
                     defines: Vec::new(),
@@ -139,26 +111,26 @@ impl JavaAnalyzer {
                 };
 
                 // definations
-                if let Some(members) = jv.get_member_by_category(VertexCategories::Methods) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::Methods) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::Defines, members);
                 }
 
                 // call outs
-                if let Some(members) = jv.get_member_by_category(VertexCategories::CreatorCalls) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::CreatorCalls) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::CallOuts, members);
                 }
 
-                if let Some(members) = jv.get_member_by_category(VertexCategories::MethodCalls) {
+                if let Some(members) = jv.get_member_by_category(ElementCategories::MethodCalls) {
                     self.apply(&mut graph_node, JavaAnalysisedResultCategory::CallOuts, members);
                 }
 
-                self.graph_nodes.insert(graph_node.get_signature(), graph_node);
+                self.elements.insert(graph_node.get_signature(), graph_node);
             }
         }
         Ok(())
     }
 
-    fn apply(&self, node: &mut GraphNode, category: JavaAnalysisedResultCategory, vertexes: &Vec<Box<JavaVertex>>) {
+    fn apply(&self, node: &mut GraphVertex, category: JavaAnalysisedResultCategory, vertexes: &Vec<Box<JavaElement>>) {
         for jv in vertexes {
             if let Some(v) = jv.get_type() {
                 match category {
@@ -175,7 +147,7 @@ impl JavaAnalyzer {
         lines.push("  node [shape=plaintext fontname=\"Sans serif\" fontsize=\"8\"];".to_string());
 
         // add nodes
-        for (_name, node) in &self.graph_nodes {
+        for (_name, node) in &self.elements {
             lines.push(format!("  {}", node.to_graphviz_node()));
         }
 
@@ -197,7 +169,7 @@ impl JavaAnalyzer {
 impl LanguageAnalysisPolicy for JavaAnalyzer {
     fn new() -> Self {
         JavaAnalyzer {
-            graph_nodes: HashMap::new(),
+            elements: HashMap::new(),
             depends: Vec::new()
         }
     }
@@ -219,7 +191,7 @@ impl LanguageAnalysisPolicy for JavaAnalyzer {
                     }
             
                     // outputs
-                    let mut sorted_graph_nodes: Vec<_> = self.graph_nodes.iter().collect();
+                    let mut sorted_graph_nodes: Vec<_> = self.elements.iter().collect();
                     sorted_graph_nodes.sort_by_key(|k| k.0);
             
                     for (key, node) in sorted_graph_nodes {

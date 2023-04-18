@@ -6,27 +6,29 @@ use std::{
     collections::LinkedList
 };
 
-use suzaku_extension_sdk::language::inode::INode;
-use super::node_type::JavaNodeType;
+use suzaku_extension_sdk::language::{
+    meta::IMeta,
+    meta_type::MetaType
+};
 
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct JavaNode {
-    node_type: JavaNodeType,
+pub struct JavaMeta {
+    node_type: MetaType,
     attr: Option<String>,
     members: LinkedList<Self>,
 }
 
-impl INode<JavaNodeType> for JavaNode {
-    fn new(node_type: JavaNodeType) -> Self {
-        JavaNode {
+impl IMeta<MetaType> for JavaMeta {
+    fn new(node_type: MetaType) -> Self {
+        JavaMeta {
             node_type: node_type,
             attr: None,
             members: LinkedList::new(),
         }
     }
 
-    fn get_node_type(&self) -> JavaNodeType {
+    fn get_node_type(&self) -> MetaType {
         self.node_type
     }
 
@@ -51,29 +53,29 @@ impl INode<JavaNodeType> for JavaNode {
     }
 }
 
-impl JavaNode {
-    pub fn reorganize(&mut self) -> Vec<JavaNode> {
-        let mut children: Vec<JavaNode> = Vec::new();
+impl JavaMeta {
+    pub fn reorganize(&mut self) -> Vec<JavaMeta> {
+        let mut children: Vec<JavaMeta> = Vec::new();
 
         if self.get_members().len() > 0 {
             match self.get_node_type() {
-                JavaNodeType::Expression | JavaNodeType::Primary | JavaNodeType::Literal | JavaNodeType::VariableDeclarators => {
+                MetaType::Expression | MetaType::Primary | MetaType::Literal | MetaType::VariableDeclarators => {
                     if self.get_members().len() == 1 {
                         children.push(self.get_members_mut().pop_front().unwrap());
                         return children;
                     }
     
-                    if self.get_members().front().unwrap().get_node_type() == JavaNodeType::Operator {
+                    if self.get_members().front().unwrap().get_node_type() == MetaType::Operator {
                         children.push(self.get_members_mut().pop_front().unwrap());
                     }
                 },
-                JavaNodeType::Arguments | JavaNodeType::FormalParameters => {
+                MetaType::Arguments | MetaType::FormalParameters => {
                     if self.get_members().len() == 1 {
                         let mut unique_member = self.get_members_mut().pop_front().unwrap();
                         self.get_members_mut().append(unique_member.get_members_mut());
                     }
                 },
-                JavaNodeType::TypeDeclaration | JavaNodeType::ClassBodyDeclaration | JavaNodeType::MemberDeclaration => {
+                MetaType::TypeDeclaration | MetaType::ClassBodyDeclaration | MetaType::MemberDeclaration => {
                     let mut top = self.get_members_mut().pop_back().unwrap();
                     while let Some(front) = self.get_members_mut().pop_back() {
                         top.get_members_mut().push_front(front);
@@ -81,7 +83,7 @@ impl JavaNode {
                     children.push(top);
                     return children;
                 },
-                JavaNodeType::InterfaceCommonBodyDeclaration => {
+                MetaType::InterfaceCommonBodyDeclaration => {
                     while let Some(member) = self.get_members_mut().pop_front() {
                         children.push(member);
                     }
@@ -91,8 +93,8 @@ impl JavaNode {
     
             self.reorganize_for_method_call();
             match self.get_node_type() {
-                JavaNodeType::Expression | JavaNodeType::Statement => {
-                    if self.get_members().len() == 1 && self.get_members_mut().front().unwrap().get_node_type() == JavaNodeType::MethodCall  {
+                MetaType::Expression | MetaType::Statement => {
+                    if self.get_members().len() == 1 && self.get_members_mut().front().unwrap().get_node_type() == MetaType::MethodCall  {
                         children.push(self.get_members_mut().pop_front().unwrap());
                         return children;
                     }
@@ -107,11 +109,11 @@ impl JavaNode {
 
     pub fn reorganize_for_method_call(&mut self) {
         let mut operate_method_call = false;
-        let mut temp_children: LinkedList<JavaNode> = LinkedList::new();
+        let mut temp_children: LinkedList<JavaMeta> = LinkedList::new();
 
         for member in self.get_members().iter().rev() {
             if operate_method_call {
-                if member.get_node_type() == JavaNodeType::Operator || member.get_node_type() == JavaNodeType::Separator {
+                if member.get_node_type() == MetaType::Operator || member.get_node_type() == MetaType::Separator {
                     operate_method_call = false;
                     temp_children.push_front(member.clone());
                     continue;
@@ -119,7 +121,7 @@ impl JavaNode {
                 temp_children.front_mut().unwrap().get_members_mut().push_front(member.clone());
             } else {
                 temp_children.push_front(member.clone());
-                if member.get_node_type() == JavaNodeType::MethodCall {
+                if member.get_node_type() == MetaType::MethodCall {
                     operate_method_call = true;
                 }
             }

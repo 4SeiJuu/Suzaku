@@ -18,53 +18,53 @@ use suzaku_extension_sdk::{
             LanguageDataCleanPolicy,
             LanguageDataCleanPolicyError,
             LanguageDataCleanResult
-        }, inode::INode, 
-        ivertex::{
-            IVertex,
-            VertexType,
-            VertexCategories, TypeDescriptor, ParamDescriptor
+        }, 
+        meta::IMeta, 
+        meta_type::MetaType,
+        element::{
+            IElement,
+            Elements,
+            ElementCategories, TypeDescriptor, ParamDescriptor
         }
     },
     stack::Stack,
-    VERTEX_FILE_EXTENSION, 
+    ELEMENT_FILE_EXTENSION, 
 };
 
-use crate::java::node_type::JavaNodeType;
-
 use super::{
-    vertex::JavaVertex, 
-    node::JavaNode
+    element::JavaElement, 
+    meta::JavaMeta
 };
 
 pub struct JavaDataCleanListener {
-    vertexes: HashMap<VertexCategories, Vec<JavaVertex>>,
-    stack: Stack<JavaVertex>
+    vertexes: HashMap<ElementCategories, Vec<JavaElement>>,
+    stack: Stack<JavaElement>
 }
 
 impl JavaDataCleanListener {
-    pub fn results(&self) -> HashMap<VertexCategories, Vec<JavaVertex>> {
+    pub fn results(&self) -> HashMap<ElementCategories, Vec<JavaElement>> {
         self.vertexes.clone()
     }
 
-    fn enter(&mut self, node: &JavaNode) {
+    fn enter(&mut self, node: &JavaMeta) {
         match node.get_node_type() {
-            JavaNodeType::PackageDeclaration => self.analysis_package_declaration(node),
-            JavaNodeType::ImportDeclaration => self.analysis_import_declaration(node),
-            JavaNodeType::ClassDeclaration => self.analysis_class_declaration(node),
-            JavaNodeType::InterfaceDeclaration => self.analysis_interface_declaration(node),
-            JavaNodeType::EnumDeclaration => {},
-            JavaNodeType::FieldDeclaration => self.analysis_field_declaration(node),
-            JavaNodeType::MethodDeclaration | JavaNodeType::InterfaceMethodDeclaration => self.analysis_method_declaration(node),
-            JavaNodeType::AnnotationTypeDeclaration => {},
-            JavaNodeType::ConstructorDeclaration => self.analysis_constructor(node),
-            JavaNodeType::VariableDeclarators => {},
-            JavaNodeType::Creator => self.analysis_creator(node),
-            JavaNodeType::MethodCall => self.analysis_method_call(node),
+            MetaType::PackageDeclaration => self.analysis_package_declaration(node),
+            MetaType::ImportDeclaration => self.analysis_import_declaration(node),
+            MetaType::ClassDeclaration => self.analysis_class_declaration(node),
+            MetaType::InterfaceDeclaration => self.analysis_interface_declaration(node),
+            MetaType::EnumDeclaration => {},
+            MetaType::FieldDeclaration => self.analysis_field_declaration(node),
+            MetaType::MethodDeclaration | MetaType::InterfaceMethodDeclaration => self.analysis_method_declaration(node),
+            MetaType::AnnotationTypeDeclaration => {},
+            MetaType::ConstructorDeclaration => self.analysis_constructor(node),
+            MetaType::VariableDeclarators => {},
+            MetaType::Creator => self.analysis_creator(node),
+            MetaType::MethodCall => self.analysis_method_call(node),
             _ => ()
         }
     }
 
-    fn exit(&mut self, node: &JavaNode) {
+    fn exit(&mut self, node: &JavaMeta) {
         let top = self.stack.top();
         if top.is_none() {
             return;
@@ -76,66 +76,66 @@ impl JavaDataCleanListener {
         }
 
         if let Some((category, vertex)) = match node.get_node_type() {
-            JavaNodeType::PackageDeclaration => {
-                if let VertexType::Package(_) = ty.unwrap() {
-                    Some((VertexCategories::Package, self.stack.pop()))
+            MetaType::PackageDeclaration => {
+                if let Elements::Package(_) = ty.unwrap() {
+                    Some((ElementCategories::Package, self.stack.pop()))
                 } else {
                     None
                 }
             },
-            JavaNodeType::ImportDeclaration => {
-                if let VertexType::Import(_) = ty.unwrap() {
-                    Some((VertexCategories::Imports, self.stack.pop()))
+            MetaType::ImportDeclaration => {
+                if let Elements::Import(_) = ty.unwrap() {
+                    Some((ElementCategories::Imports, self.stack.pop()))
                 } else {
                     None
                 }
             }
-            JavaNodeType::ClassDeclaration => {
-                if let VertexType::Class(_, _, _, _, _, _) = ty.unwrap() {
-                    Some((VertexCategories::Classes, self.stack.pop()))
+            MetaType::ClassDeclaration => {
+                if let Elements::Class(_, _, _, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::Classes, self.stack.pop()))
                 } else {
                     None
                 } 
             },
-            JavaNodeType::InterfaceDeclaration => {
-                if let VertexType::Interface(_, _, _, _, _) = ty.unwrap() {
-                    Some((VertexCategories::Interfaces, self.stack.pop()))
+            MetaType::InterfaceDeclaration => {
+                if let Elements::Interface(_, _, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::Interfaces, self.stack.pop()))
                 } else {
                     None
                 } 
             },
-            JavaNodeType::EnumDeclaration => None,
-            JavaNodeType::FieldDeclaration => {
-                if let VertexType::Field(_, _, _, _, _) = ty.unwrap() {
-                    Some((VertexCategories::Fields, self.stack.pop()))
+            MetaType::EnumDeclaration => None,
+            MetaType::FieldDeclaration => {
+                if let Elements::Field(_, _, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::Fields, self.stack.pop()))
                 } else {
                     None
                 }
             },
-            JavaNodeType::MethodDeclaration | JavaNodeType::InterfaceMethodDeclaration => {
-                if let VertexType::Method(_, _, _, _, _, _) = ty.unwrap() {
-                    Some((VertexCategories::Methods, self.stack.pop()))
+            MetaType::MethodDeclaration | MetaType::InterfaceMethodDeclaration => {
+                if let Elements::Method(_, _, _, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::Methods, self.stack.pop()))
                 } else {
                     None
                 }
             },
-            JavaNodeType::ConstructorDeclaration => {
-                if let VertexType::Constructor(_, _, _, _) = ty.unwrap() {
-                    Some((VertexCategories::Constructors, self.stack.pop()))
+            MetaType::ConstructorDeclaration => {
+                if let Elements::Constructor(_, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::Constructors, self.stack.pop()))
                 } else {
                     None
                 }
             },
-            JavaNodeType::Creator => {
-                if let VertexType::CreatorCall(_, _, _) = ty.unwrap() {
-                    Some((VertexCategories::CreatorCalls, self.stack.pop()))
+            MetaType::Creator => {
+                if let Elements::CreatorCall(_, _, _) = ty.unwrap() {
+                    Some((ElementCategories::CreatorCalls, self.stack.pop()))
                 } else {
                     None
                 }
             },
-            JavaNodeType::MethodCall => {
-                if let VertexType::MethodCall(_, _, _, _) = ty.unwrap() {
-                    Some((VertexCategories::MethodCalls, self.stack.pop()))
+            MetaType::MethodCall => {
+                if let Elements::MethodCall(_, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::MethodCalls, self.stack.pop()))
                 } else {
                     None
                 }
@@ -143,7 +143,7 @@ impl JavaDataCleanListener {
             _ => None
         } {
             if let Some(vertex) = vertex {
-                if category == VertexCategories::Classes || category == VertexCategories::Interfaces {
+                if category == ElementCategories::Classes || category == ElementCategories::Interfaces {
                     self.add_vertex(category, vertex)
                 } else {
                     self.add_vertext_to_parent(category, vertex.clone());
@@ -155,46 +155,46 @@ impl JavaDataCleanListener {
         }
     }
     
-    fn analysis_package_declaration(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::PackageDeclaration);
+    fn analysis_package_declaration(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::PackageDeclaration);
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::QualifiedName => {
+                MetaType::QualifiedName => {
                     let mut idents: Vec<String> = Vec::new();
                     for ident in member.get_members() {
                         idents.push(ident.get_attr().as_ref().unwrap().to_string());
                     }
-                    let ty = VertexType::Package(idents);
-                    self.push_to_stack(JavaVertex::new(ty));
+                    let ty = Elements::Package(idents);
+                    self.push_to_stack(JavaElement::new(ty));
                 },
                 _ => ()
             }
         }
     }
 
-    fn analysis_import_declaration(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::ImportDeclaration);
+    fn analysis_import_declaration(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::ImportDeclaration);
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::QualifiedName => {
+                MetaType::QualifiedName => {
                     let mut idents: Vec<String> = Vec::new();
                     for ident in member.get_members() {
                         idents.push(ident.get_attr().as_ref().unwrap().to_string());
                     }
                     let type_name = idents.swap_remove(idents.len() - 1);
-                    let ty = VertexType::Import(TypeDescriptor {
+                    let ty = Elements::Import(TypeDescriptor {
                         package: idents, 
                         name: vec![type_name]
                     });
-                    self.push_to_stack(JavaVertex::new(ty));
+                    self.push_to_stack(JavaElement::new(ty));
                 },
                 _ => ()
             }
         }
     }
 
-    fn analysis_class_declaration(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::ClassDeclaration);
+    fn analysis_class_declaration(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::ClassDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
@@ -204,16 +204,16 @@ impl JavaDataCleanListener {
 
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::Annotation => if let Some(attr) = member.get_attr() {
+                MetaType::Annotation => if let Some(attr) = member.get_attr() {
                     annotations.push(attr.to_string());
                 },
-                JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
+                MetaType::Modifier => if let Some(attr) = member.get_attr() {
                     modifiers.push(attr.to_string());
                 },
-                JavaNodeType::Identifier => if let Some(attr) = member.get_attr() {
+                MetaType::Identifier => if let Some(attr) = member.get_attr() {
                     ident = Some(attr.to_string());
                 },
-                JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
+                MetaType::TypeType => if let Some(attr) = member.get_attr() {
                     if let Some(extend) = match self.get_dependency_type_info_from_imports(attr.as_str()) {
                         Some(td) => Some(TypeDescriptor {
                             package: td.package.clone(), 
@@ -227,7 +227,7 @@ impl JavaDataCleanListener {
                         extends.push(extend);
                     }
                 },
-                JavaNodeType::TypeList => if let Some(attr) = member.get_attr() {
+                MetaType::TypeList => if let Some(attr) = member.get_attr() {
                     let implement = match self.get_dependency_type_info_from_imports(attr.as_str()) {
                         Some(td) => TypeDescriptor { package: td.package.clone(), name: vec![attr.to_string()]},
                         None => TypeDescriptor {package: Vec::new(), name: vec![attr.to_string()]}
@@ -240,17 +240,17 @@ impl JavaDataCleanListener {
 
         if let Some(package_name) = self.get_package_name() {
             let ty = match self.get_type_name() {
-                Some(type_name) => VertexType::Class(
+                Some(type_name) => Elements::Class(
                         TypeDescriptor { package: package_name.clone(), name: type_name }, annotations, modifiers, ident.unwrap(), extends, implements.clone()),
-                None => VertexType::Class(
+                None => Elements::Class(
                     TypeDescriptor { package: package_name.clone(), name: Vec::new() }, annotations, modifiers, ident.unwrap(), extends, implements.clone())
             };
-            self.push_to_stack(JavaVertex::new(ty));
+            self.push_to_stack(JavaElement::new(ty));
         }
     }
 
-    fn analysis_interface_declaration(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::InterfaceDeclaration);
+    fn analysis_interface_declaration(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::InterfaceDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
@@ -259,16 +259,16 @@ impl JavaDataCleanListener {
 
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::Annotation => if let Some(attr) = member.get_attr() {
+                MetaType::Annotation => if let Some(attr) = member.get_attr() {
                     annotations.push(attr.to_string());
                 },
-                JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
+                MetaType::Modifier => if let Some(attr) = member.get_attr() {
                     modifiers.push(attr.to_string());
                 },
-                JavaNodeType::Identifier => if let Some(attr) = member.get_attr() {
+                MetaType::Identifier => if let Some(attr) = member.get_attr() {
                     ident = Some(attr.to_string());
                 },
-                JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
+                MetaType::TypeType => if let Some(attr) = member.get_attr() {
                     extends.push(match self.get_dependency_type_info_from_imports(attr.as_str()) {
                         Some(td) => TypeDescriptor {
                             package: td.package.clone(), 
@@ -286,17 +286,17 @@ impl JavaDataCleanListener {
 
         if let Some(package_name) = self.get_package_name() {
             let ty = match self.get_type_name() {
-                Some(type_name) => VertexType::Interface(
+                Some(type_name) => Elements::Interface(
                         TypeDescriptor { package: package_name.clone(), name: type_name }, annotations, modifiers, ident.unwrap(), extends),
-                None => VertexType::Interface(
+                None => Elements::Interface(
                     TypeDescriptor { package: package_name.clone(), name: Vec::new() }, annotations, modifiers, ident.unwrap(), extends)
             };
-            self.push_to_stack(JavaVertex::new(ty));
+            self.push_to_stack(JavaElement::new(ty));
         }
     }
 
-    fn analysis_field_declaration(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::FieldDeclaration);
+    fn analysis_field_declaration(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::FieldDeclaration);
 
         let mut modifiers: Vec<String> = Vec::new();
         let mut ty: Option<TypeDescriptor> = None;
@@ -305,16 +305,16 @@ impl JavaDataCleanListener {
 
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
+                MetaType::Modifier => if let Some(attr) = member.get_attr() {
                     modifiers.push(attr.to_string());
                 },
-                JavaNodeType::TypeType => if let Some(attr) = member.get_attr() {
+                MetaType::TypeType => if let Some(attr) = member.get_attr() {
                     match self.get_dependency_type_info_from_imports(attr.as_str()) {
                         Some(td) => ty = Some(TypeDescriptor {package: td.package.clone(), name: vec![attr.to_string()]}),
                         None => ty = Some(TypeDescriptor {package: Vec::new(), name: vec![attr.to_string()]})
                     }
                 },
-                JavaNodeType::VariableDeclarator => {
+                MetaType::VariableDeclarator => {
                     if member.get_members().len() == 0 {
                         variable_id = Some(member.get_attr().as_ref().unwrap().to_string());
                         continue;
@@ -322,8 +322,8 @@ impl JavaDataCleanListener {
 
                     for child in member.get_members() {
                         match child.get_node_type() {
-                            JavaNodeType::VariableDeclaratorId => variable_id = Some(child.get_attr().as_ref().unwrap().to_string()),
-                            JavaNodeType::VariableInitializer => if let Some(attr) = child.get_attr() {
+                            MetaType::VariableDeclaratorId => variable_id = Some(child.get_attr().as_ref().unwrap().to_string()),
+                            MetaType::VariableInitializer => if let Some(attr) = child.get_attr() {
                                 variable_init = Some(attr.to_string());
                             }
                             _ => ()
@@ -340,14 +340,14 @@ impl JavaDataCleanListener {
         };
 
         let ty = match self.get_type_name() {
-            Some(type_name) => VertexType::Field(TypeDescriptor { package: package, name: type_name }, modifiers.clone(), ty, variable_id, variable_init),
-            None => VertexType::Field(TypeDescriptor { package: package, name: Vec::new() }, modifiers.clone(), ty, variable_id, variable_init)
+            Some(type_name) => Elements::Field(TypeDescriptor { package: package, name: type_name }, modifiers.clone(), ty, variable_id, variable_init),
+            None => Elements::Field(TypeDescriptor { package: package, name: Vec::new() }, modifiers.clone(), ty, variable_id, variable_init)
         };
-        self.push_to_stack(JavaVertex::new(ty));
+        self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_method_declaration(&mut self, node: &JavaNode) {
-        assert!(node.get_node_type() == JavaNodeType::MethodDeclaration || node.get_node_type() == JavaNodeType::InterfaceMethodDeclaration);
+    fn analysis_method_declaration(&mut self, node: &JavaMeta) {
+        assert!(node.get_node_type() == MetaType::MethodDeclaration || node.get_node_type() == MetaType::InterfaceMethodDeclaration);
 
         // println!("{}", node.dump().unwrap());
 
@@ -359,36 +359,36 @@ impl JavaDataCleanListener {
 
         for member in node.get_members() {
             match member.get_node_type() {
-                JavaNodeType::Annotation => if let Some(attr) = member.get_attr() {
+                MetaType::Annotation => if let Some(attr) = member.get_attr() {
                     annotation = Some(attr.as_str().to_string());
                 },
-                JavaNodeType::Modifier => if let Some(attr) = member.get_attr() {
+                MetaType::Modifier => if let Some(attr) = member.get_attr() {
                     modifiers.push(attr.to_string());
                 },
-                JavaNodeType::TypeTypeOrVoid => if let Some(attr) = member.get_attr() {
+                MetaType::TypeTypeOrVoid => if let Some(attr) = member.get_attr() {
                     let package = match self.get_dependency_type_info_from_imports(attr.as_str()) {
                         Some(td) => td.package.clone(),
                         None => Vec::new()
                     };
                     ret_type = Some(TypeDescriptor { package: package, name: vec![attr.to_string()] });
                 },
-                JavaNodeType::Identifier => if let Some(attr) = member.get_attr() {
+                MetaType::Identifier => if let Some(attr) = member.get_attr() {
                     name = Some(attr.clone());
                 },
-                JavaNodeType::FormalParameters => for child in member.get_members() {
+                MetaType::FormalParameters => for child in member.get_members() {
                     match child.get_node_type() {
-                        JavaNodeType::FormalParameter => {
+                        MetaType::FormalParameter => {
                             let mut modifiers: Vec<String> = Vec::new();
                             let mut ty: Option<TypeDescriptor> = None;
                             let mut ident: Option<String> = None;
                             for item in child.get_members() {
                                 match item.get_node_type() {
-                                    JavaNodeType::VariableModifier => modifiers.push(item.get_attr().as_ref().unwrap().to_string()),
-                                    JavaNodeType::TypeType => {
+                                    MetaType::VariableModifier => modifiers.push(item.get_attr().as_ref().unwrap().to_string()),
+                                    MetaType::TypeType => {
                                         let mut idents: Vec<String> = Vec::new();
                                         for member in item.get_members() {
                                             match member.get_node_type() {
-                                                JavaNodeType::Identifier | JavaNodeType::TypeIdentifier | JavaNodeType::ClassOrInterfaceType | JavaNodeType::PrimitiveType => 
+                                                MetaType::Identifier | MetaType::TypeIdentifier | MetaType::ClassOrInterfaceType | MetaType::PrimitiveType => 
                                                     idents.push(member.get_attr().as_ref().unwrap().clone()),
                                                 _ => ()
                                             }
@@ -400,7 +400,7 @@ impl JavaDataCleanListener {
                                         };
                                         ty = Some(TypeDescriptor { package: package, name: idents })
                                     },
-                                    JavaNodeType::VariableDeclaratorId => ident = Some(item.get_attr().as_ref().unwrap().to_string()),
+                                    MetaType::VariableDeclaratorId => ident = Some(item.get_attr().as_ref().unwrap().to_string()),
                                     _ => ()
                                 };
                             }
@@ -423,15 +423,15 @@ impl JavaDataCleanListener {
         };
 
         let ty = match self.get_type_name() {
-            Some(type_name) => VertexType::Method(TypeDescriptor { package: package, name: type_name }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
-            None => VertexType::Method(TypeDescriptor { package: package, name: Vec::new() }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
+            Some(type_name) => Elements::Method(TypeDescriptor { package: package, name: type_name }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
+            None => Elements::Method(TypeDescriptor { package: package, name: Vec::new() }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
         };
 
-        self.push_to_stack(JavaVertex::new(ty));
+        self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_method_call(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::MethodCall);
+    fn analysis_method_call(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::MethodCall);
 
         let mut cast: Option<String> = None;
         let mut idents: Vec<String> = Vec::new();
@@ -439,11 +439,11 @@ impl JavaDataCleanListener {
 
         for child in node.get_members() {
             match child.get_node_type() {
-                JavaNodeType::TypeType => cast = Some(child.get_attr().as_ref().unwrap().to_string()),
-                JavaNodeType::Identifier => idents.push(child.get_attr().as_ref().unwrap().to_string()),
-                JavaNodeType::ExpressionList => if child.get_members().len() > 0 {
+                MetaType::TypeType => cast = Some(child.get_attr().as_ref().unwrap().to_string()),
+                MetaType::Identifier => idents.push(child.get_attr().as_ref().unwrap().to_string()),
+                MetaType::ExpressionList => if child.get_members().len() > 0 {
                     for param_node in child.get_members() {
-                        if param_node.get_node_type() != JavaNodeType::Separator {
+                        if param_node.get_node_type() != MetaType::Separator {
                             params.push(param_node.get_attr().as_ref().unwrap().to_string());
                         }
                     }
@@ -462,30 +462,30 @@ impl JavaDataCleanListener {
 
         assert!(idents.len() > 0);
         let ident = idents.swap_remove(idents.len() - 1);
-        let ty = VertexType::MethodCall(cast, Some(idents.join(".")), ident, params);
-        self.push_to_stack(JavaVertex::new(ty));
+        let ty = Elements::MethodCall(cast, Some(idents.join(".")), ident, params);
+        self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_creator(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::Creator);
+    fn analysis_creator(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::Creator);
 
         let mut creator_name: Vec<String> = Vec::new();
         let mut rests: Vec<String> = Vec::new();
 
         for child in node.get_members() {
             match child.get_node_type() {
-                JavaNodeType::CreatedName => for ident in child.get_members() {
+                MetaType::CreatedName => for ident in child.get_members() {
                     creator_name.push(ident.get_attr().as_ref().unwrap().to_string())
                 },
-                JavaNodeType::ClassCreatorRest => if let Some(arguments) = child.get_members().front() {
-                    assert_eq!(arguments.get_node_type(), JavaNodeType::Arguments);
+                MetaType::ClassCreatorRest => if let Some(arguments) = child.get_members().front() {
+                    assert_eq!(arguments.get_node_type(), MetaType::Arguments);
                     if arguments.get_members().len() > 0 {
                         for arg in arguments.get_members() {
                             rests.push(arg.get_attr().as_ref().unwrap().to_string());
                         }
                     }
                 },
-                JavaNodeType::ArrayCreatorRest => if child.get_members().len() > 0 {
+                MetaType::ArrayCreatorRest => if child.get_members().len() > 0 {
                     for item in child.get_members() {
                         rests.push(item.get_attr().as_ref().unwrap().to_string());
                     }
@@ -499,12 +499,12 @@ impl JavaDataCleanListener {
             None => Vec::new()
         };
 
-        let ty = VertexType::CreatorCall(package, creator_name, rests);
-        self.push_to_stack(JavaVertex::new(ty));
+        let ty = Elements::CreatorCall(package, creator_name, rests);
+        self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_constructor(&mut self, node: &JavaNode) {
-        assert_eq!(node.get_node_type(), JavaNodeType::ConstructorDeclaration);
+    fn analysis_constructor(&mut self, node: &JavaMeta) {
+        assert_eq!(node.get_node_type(), MetaType::ConstructorDeclaration);
 
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
@@ -512,20 +512,20 @@ impl JavaDataCleanListener {
 
         for child in node.get_members() {
             match child.get_node_type() {
-                JavaNodeType::Modifier => modifiers.push(child.get_attr().as_ref().unwrap().to_string()),
-                JavaNodeType::Identifier => ident = Some(child.get_attr().as_ref().unwrap().to_string()),
-                JavaNodeType::FormalParameters => if child.get_members().len() > 0 {
+                MetaType::Modifier => modifiers.push(child.get_attr().as_ref().unwrap().to_string()),
+                MetaType::Identifier => ident = Some(child.get_attr().as_ref().unwrap().to_string()),
+                MetaType::FormalParameters => if child.get_members().len() > 0 {
                     for param in child.get_members() {
                         match param.get_node_type() {
-                            JavaNodeType::FormalParameter => {
+                            MetaType::FormalParameter => {
                                 let mut param_modifiers: Vec<String> = Vec::new();
                                 let mut ty: Option<TypeDescriptor> = None;
                                 let mut name: Option<String> = None;
 
                                 for part in param.get_members() {
                                     match part.get_node_type() {
-                                        JavaNodeType::VariableModifier => param_modifiers.push(part.get_attr().as_ref().unwrap().to_string()),
-                                        JavaNodeType::TypeType => {
+                                        MetaType::VariableModifier => param_modifiers.push(part.get_attr().as_ref().unwrap().to_string()),
+                                        MetaType::TypeType => {
                                             let type_name = part.get_attr().as_ref().unwrap().as_str();
                                             let package_name = match self.get_dependency_type_info_from_imports(type_name) {
                                                 Some(td) => td.package.clone(),
@@ -536,7 +536,7 @@ impl JavaDataCleanListener {
                                                 name: vec![type_name.to_string()]
                                             });
                                         },
-                                        JavaNodeType::VariableDeclaratorId => name = Some(part.get_attr().as_ref().unwrap().to_string()),
+                                        MetaType::VariableDeclaratorId => name = Some(part.get_attr().as_ref().unwrap().to_string()),
                                         _ => ()
                                     }
                                 }
@@ -560,25 +560,25 @@ impl JavaDataCleanListener {
         };
 
         let ty = match self.get_type_name() {
-            Some(type_name) => VertexType::Constructor(TypeDescriptor { package: package, name: type_name }, modifiers, ident.unwrap().to_string(), params),
-            None => VertexType::Constructor(TypeDescriptor { package: package, name: Vec::new() }, modifiers, ident.unwrap().to_string(), params),
+            Some(type_name) => Elements::Constructor(TypeDescriptor { package: package, name: type_name }, modifiers, ident.unwrap().to_string(), params),
+            None => Elements::Constructor(TypeDescriptor { package: package, name: Vec::new() }, modifiers, ident.unwrap().to_string(), params),
         };
 
-        self.push_to_stack(JavaVertex::new(ty));
+        self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn add_vertex(&mut self, category: VertexCategories, vertex: JavaVertex) {
+    fn add_vertex(&mut self, category: ElementCategories, vertex: JavaElement) {
         match self.vertexes.get_mut(&category) {
             Some(vertexes) => _ = vertexes.push(vertex),
             None => _ = self.vertexes.insert(category, vec![vertex]),
         }
     }
 
-    fn push_to_stack(&mut self, vertex: JavaVertex) {
+    fn push_to_stack(&mut self, vertex: JavaElement) {
         self.stack.push(vertex);
     }
 
-    fn add_vertext_to_parent(&mut self, category: VertexCategories, vertex: JavaVertex) {
+    fn add_vertext_to_parent(&mut self, category: ElementCategories, vertex: JavaElement) {
         if self.stack.len() <= 0 {
             return;
         }
@@ -589,8 +589,8 @@ impl JavaDataCleanListener {
     }
 
     fn get_package_name(&self) -> Option<&Vec<String>> {
-        if let Some(packages) = self.vertexes.get(VertexCategories::Package.as_ref()) {
-            if let VertexType::Package(package_name) = packages.get(0).unwrap().get_type().unwrap() {
+        if let Some(packages) = self.vertexes.get(ElementCategories::Package.as_ref()) {
+            if let Elements::Package(package_name) = packages.get(0).unwrap().get_type().unwrap() {
                 return Some(package_name)
             }
         }
@@ -606,7 +606,7 @@ impl JavaDataCleanListener {
         let mut parents: Vec<String> = Vec::new();
         for index in 0..self.stack.len() {
             if let Some(jv) = self.stack.get_by_index(index) {
-                if let VertexType::Class(_, _, _, name, _, _) = jv.get_type().unwrap() {
+                if let Elements::Class(_, _, _, name, _, _) = jv.get_type().unwrap() {
                     parents.push(name.to_string())
                 }
             }
@@ -619,10 +619,10 @@ impl JavaDataCleanListener {
         let re = Regex::new(r"[\[|<].*[\]|>]").unwrap();
         let short_name = re.replace_all(short_name, "");
         
-        if let Some(imports) = self.vertexes.get(&VertexCategories::Imports) {
+        if let Some(imports) = self.vertexes.get(&ElementCategories::Imports) {
             for import in imports {
                 if let Some(ty) = import.get_type() {
-                    if let VertexType::Import(package) = ty {
+                    if let Elements::Import(package) = ty {
                         if let Some(last_name) = package.get_last_name() {
                             if last_name == short_name {
                                 return Some(package);
@@ -639,8 +639,8 @@ impl JavaDataCleanListener {
 pub struct JavaDataCleanPolicy;
 
 impl<'a> JavaDataCleanPolicy {
-    pub fn analysis(&mut self, node: &JavaNode) -> LanguageDataCleanResult<HashMap<VertexCategories, Vec<JavaVertex>>> {
-        assert_eq!(node.get_node_type(), JavaNodeType::File);
+    pub fn analysis(&mut self, node: &JavaMeta) -> LanguageDataCleanResult<HashMap<ElementCategories, Vec<JavaElement>>> {
+        assert_eq!(node.get_node_type(), MetaType::File);
 
         let mut node_listener = JavaDataCleanListener{
             vertexes: HashMap::new(),
@@ -654,7 +654,7 @@ impl<'a> JavaDataCleanPolicy {
         Ok(data)
     }
 
-    fn node_tree_walker(node: &JavaNode, listener: &mut JavaDataCleanListener) {
+    fn node_tree_walker(node: &JavaMeta, listener: &mut JavaDataCleanListener) {
         listener.enter(&node);
         for child in node.get_members() {
             JavaDataCleanPolicy::node_tree_walker(child, listener);
@@ -681,7 +681,7 @@ impl LanguageDataCleanPolicy for JavaDataCleanPolicy {
             deserializer.disable_recursion_limit();
             let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
             let v = Value::deserialize(deserializer).unwrap();
-            let context: JavaNode = serde_json::from_value(v).unwrap();
+            let context: JavaMeta = serde_json::from_value(v).unwrap();
             // end solve issue
 
             if let Ok(jv) = self.analysis(&context) {
@@ -689,7 +689,7 @@ impl LanguageDataCleanPolicy for JavaDataCleanPolicy {
                     _ = fs::create_dir_all(&output);
                 }
 
-                let output_file_path = output.join(format!("{}.{}", metadata.file_stem().unwrap().to_str().unwrap(), VERTEX_FILE_EXTENSION));
+                let output_file_path = output.join(format!("{}.{}", metadata.file_stem().unwrap().to_str().unwrap(), ELEMENT_FILE_EXTENSION));
                 if let Ok(mut f) = File::create(&output_file_path) {
                     let _ = f.write_all(serde_json::to_string(&jv).unwrap().as_bytes());
                     let _ = f.flush();

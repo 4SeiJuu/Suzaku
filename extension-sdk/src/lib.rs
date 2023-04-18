@@ -7,9 +7,12 @@ pub const METADATA_FOLDER_NAME: &str = "metadata";
 pub const METADATA_FILE_EXTENSION: &str = "json";
 
 // for data clean
-pub const VERTEX_FOLDER_NAME: &str = "vertexes";
-pub const VERTEX_FILE_EXTENSION: &str = "vertex";
+pub const ELEMENT_FOLDER_NAME: &str = "elements";
+pub const ELEMENT_FILE_EXTENSION: &str = "ele";
 
 // for analysis
 pub const GRAPH_FOLDER_NAME: &str = "graph";
 pub const GRAPH_FILE_EXTENSION: &str = "dot";
+
+// for reporter
+pub const GRAPHVIZ_DOT_FILE_EXTENSION: &str = "dot";

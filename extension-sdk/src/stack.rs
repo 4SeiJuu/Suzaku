@@ -34,9 +34,6 @@ impl<T: Serialize> Stack<T> {
     }
 
     pub fn get_by_index(&self, index: usize) -> Option<&T> {
-        if index < 0 {
-            return None
-        }
         self.0.get(index)
     }
 
