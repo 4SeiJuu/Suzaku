@@ -1,13 +1,22 @@
 use antlr_rust::{
     parser::ParserNodeType,
-    tree::{ErrorNode, ParseTree, ParseTreeListener, TerminalNode},
+    tree::{
+        ErrorNode, 
+        ParseTree, 
+        ParseTreeListener, 
+        TerminalNode
+    },
 };
 
 use suzaku_extension_sdk::{
     stack::Stack,
     language::{
-        meta::IMeta,
+        meta::{
+            IMeta, 
+            Metadata
+        },
         meta_type::MetaType,
+        reorganzier::LanguageMetaReorganizePolicy
     }
 };
 
@@ -15,37 +24,39 @@ use super::{
     generated::{
         javaparserlistener::JavaParserListener,
         javaparser::*
-    },
-    meta::JavaMeta,
+    }, 
+    meta::JavaMetaReorganizePolicy,
 };
 
 pub struct ParserListener {
-    stack: Stack<JavaMeta>,
+    stack: Stack<Metadata>,
+    reorganizer: Option<JavaMetaReorganizePolicy>
 }
 
 impl ParserListener {
-    pub fn new(root_node: JavaMeta) -> Self {
+    pub fn new(root_node: Metadata, reorganizer: Option<JavaMetaReorganizePolicy>) -> Self {
         let mut st = Stack::new();
         st.push(root_node);
         ParserListener {
             stack: st,
+            reorganizer: reorganizer
         }
     }
 
-    pub fn results(&mut self) -> Option<JavaMeta> {
+    pub fn results(&mut self) -> Option<Metadata> {
         self.stack_mut().pop()
     }
 
 
-    fn stack(&self) -> &Stack<JavaMeta> {
+    fn stack(&self) -> &Stack<Metadata> {
         &&self.stack
     }
 
-    fn stack_mut(&mut self) -> &mut Stack<JavaMeta> {
+    fn stack_mut(&mut self) -> &mut Stack<Metadata> {
         &mut self.stack
     }
 
-    fn update_node_attrs<T: Fn(&mut JavaMeta)>(&mut self, node_type: MetaType, update_attrs: T) -> Option<&JavaMeta> {
+    fn update_node_attrs<T: Fn(&mut Metadata)>(&mut self, node_type: MetaType, update_attrs: T) -> Option<&Metadata> {
         match self.stack().top() {
             Some(top) => if top.get_node_type() != node_type {
                 panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}\n== Dump ======\n{}\n===============", 
@@ -69,7 +80,10 @@ impl ParserListener {
             .pop()
             .unwrap_or_else(|| panic!("[ERROR] invalid status. top node not found."));
         
-        let children = poped_node.reorganize();
+        let children = match &mut self.reorganizer {
+            Some(ref mut reorg) => reorg.reorganize(&mut poped_node),
+            None => vec![poped_node]
+        };
 
         let parent = self
             .stack_mut()
@@ -88,7 +102,7 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
             "=" | ">" | "<" | "!" | "~" | "?" | ":" | "==" | "<=" | ">=" | "!=" | "&&" | "||"
             | "++" | "--" | "+" | "-" | "*" | "/" | "&" | "|" | "^" | "%" | "+=" | "-=" | "*="
             | "/=" | "&=" | "|=" | "^=" | "%=" | "<<=" | ">>=" | ">>>=" | "->" | "::" => {
-                let mut op_node = JavaMeta::new(MetaType::Operator);
+                let mut op_node = Metadata::new(MetaType::Operator);
                 op_node.set_attr(_node.get_text().as_str());
                 self.stack_mut()
                     .top_mut()
@@ -97,7 +111,7 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
                     .push_back(op_node);
             },
             "," => {
-                let mut sep_node = JavaMeta::new(MetaType::Separator);
+                let mut sep_node = Metadata::new(MetaType::Separator);
                 sep_node.set_attr(_node.get_text().as_str());
                 self.stack_mut()
                     .top_mut()
@@ -108,7 +122,7 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
             "static" => match self.stack_mut().top_mut().unwrap().get_node_type() {
                 MetaType::ImportDeclaration | MetaType::ClassBodyDeclaration => {
                     if let Some(top_node) = self.stack_mut().top_mut() {
-                        let mut modifier_node = JavaMeta::new(MetaType::Modifier);
+                        let mut modifier_node = Metadata::new(MetaType::Modifier);
                         modifier_node.set_attr(_node.get_text().as_str());
                         top_node.get_members_mut().push_back(modifier_node);
                     }
@@ -143,7 +157,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_packageDeclaration(&mut self, _ctx: &PackageDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::PackageDeclaration));
+            .push(Metadata::new(MetaType::PackageDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#packageDeclaration}.
@@ -161,7 +175,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_importDeclaration(&mut self, _ctx: &ImportDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ImportDeclaration));
+            .push(Metadata::new(MetaType::ImportDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#importDeclaration}.
@@ -179,7 +193,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_typeDeclaration(&mut self, _ctx: &TypeDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::TypeDeclaration));
+            .push(Metadata::new(MetaType::TypeDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeDeclaration}.
@@ -196,7 +210,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_modifier(&mut self, _ctx: &ModifierContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Modifier));
+        self.stack_mut().push(Metadata::new(MetaType::Modifier));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#modifier}.
@@ -214,7 +228,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_variableModifier(&mut self, _ctx: &VariableModifierContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::VariableModifier));
+            .push(Metadata::new(MetaType::VariableModifier));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#variableModifier}.
@@ -232,7 +246,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_classDeclaration(&mut self, _ctx: &ClassDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ClassDeclaration));
+            .push(Metadata::new(MetaType::ClassDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#classDeclaration}.
@@ -250,7 +264,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_typeParameters(&mut self, _ctx: &TypeParametersContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::TypeParameters));
+            .push(Metadata::new(MetaType::TypeParameters));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeParameters}.
@@ -268,7 +282,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_typeParameter(&mut self, _ctx: &TypeParameterContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::TypeParameter));
+            .push(Metadata::new(MetaType::TypeParameter));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeParameter}.
@@ -285,7 +299,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_typeBound(&mut self, _ctx: &TypeBoundContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::TypeBound));
+        self.stack_mut().push(Metadata::new(MetaType::TypeBound));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeBound}.
@@ -303,7 +317,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_enumDeclaration(&mut self, _ctx: &EnumDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::EnumDeclaration));
+            .push(Metadata::new(MetaType::EnumDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#enumDeclaration}.
@@ -321,7 +335,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_enumConstants(&mut self, _ctx: &EnumConstantsContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::EnumConstants));
+            .push(Metadata::new(MetaType::EnumConstants));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#enumConstants}.
@@ -338,7 +352,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_enumConstant(&mut self, _ctx: &EnumConstantContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::EnumConstant));
+        self.stack_mut().push(Metadata::new(MetaType::EnumConstant));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#enumConstant}.
@@ -356,7 +370,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_enumBodyDeclarations(&mut self, _ctx: &EnumBodyDeclarationsContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::EnumBodyDeclarations));
+            .push(Metadata::new(MetaType::EnumBodyDeclarations));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#enumBodyDeclarations}.
@@ -374,7 +388,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_interfaceDeclaration(&mut self, _ctx: &InterfaceDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::InterfaceDeclaration));
+            .push(Metadata::new(MetaType::InterfaceDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#interfaceDeclaration}.
@@ -391,7 +405,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_classBody(&mut self, _ctx: &ClassBodyContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::ClassBody));
+        self.stack_mut().push(Metadata::new(MetaType::ClassBody));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#classBody}.
@@ -409,7 +423,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_interfaceBody(&mut self, _ctx: &InterfaceBodyContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::InterfaceBody));
+            .push(Metadata::new(MetaType::InterfaceBody));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#interfaceBody}.
@@ -427,7 +441,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_classBodyDeclaration(&mut self, _ctx: &ClassBodyDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ClassBodyDeclaration));
+            .push(Metadata::new(MetaType::ClassBodyDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#classBodyDeclaration}.
@@ -445,7 +459,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_memberDeclaration(&mut self, _ctx: &MemberDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::MemberDeclaration));
+            .push(Metadata::new(MetaType::MemberDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#memberDeclaration}.
@@ -463,7 +477,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_methodDeclaration(&mut self, _ctx: &MethodDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::MethodDeclaration));
+            .push(Metadata::new(MetaType::MethodDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#methodDeclaration}.
@@ -480,7 +494,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_methodBody(&mut self, _ctx: &MethodBodyContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::MethodBody));
+        self.stack_mut().push(Metadata::new(MetaType::MethodBody));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#methodBody}.
@@ -498,7 +512,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_typeTypeOrVoid(&mut self, _ctx: &TypeTypeOrVoidContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::TypeTypeOrVoid));
+            .push(Metadata::new(MetaType::TypeTypeOrVoid));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeTypeOrVoid}.
@@ -516,7 +530,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_genericMethodDeclaration(&mut self, _ctx: &GenericMethodDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::GenericMethodDeclaration));
+            .push(Metadata::new(MetaType::GenericMethodDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#genericMethodDeclaration}.
@@ -537,7 +551,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &GenericConstructorDeclarationContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::GenericConstructorDeclaration));
+            .push(Metadata::new(MetaType::GenericConstructorDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#genericConstructorDeclaration}.
@@ -558,7 +572,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_constructorDeclaration(&mut self, _ctx: &ConstructorDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ConstructorDeclaration));
+            .push(Metadata::new(MetaType::ConstructorDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#constructorDeclaration}.
@@ -579,7 +593,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &CompactConstructorDeclarationContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::CompactConstructorDeclaration));
+            .push(Metadata::new(MetaType::CompactConstructorDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#compactConstructorDeclaration}.
@@ -600,7 +614,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_fieldDeclaration(&mut self, _ctx: &FieldDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::FieldDeclaration));
+            .push(Metadata::new(MetaType::FieldDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#fieldDeclaration}.
@@ -618,7 +632,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_interfaceBodyDeclaration(&mut self, _ctx: &InterfaceBodyDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::InterfaceBodyDeclaration));
+            .push(Metadata::new(MetaType::InterfaceBodyDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#interfaceBodyDeclaration}.
@@ -639,7 +653,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &InterfaceMemberDeclarationContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::InterfaceMemberDeclaration));
+            .push(Metadata::new(MetaType::InterfaceMemberDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#interfaceMemberDeclaration}.
@@ -660,7 +674,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_constDeclaration(&mut self, _ctx: &ConstDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ConstDeclaration));
+            .push(Metadata::new(MetaType::ConstDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#constDeclaration}.
@@ -678,7 +692,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_constantDeclarator(&mut self, _ctx: &ConstantDeclaratorContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ConstantDeclarator));
+            .push(Metadata::new(MetaType::ConstantDeclarator));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#constantDeclarator}.
@@ -699,7 +713,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &InterfaceMethodDeclarationContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::InterfaceMethodDeclaration));
+            .push(Metadata::new(MetaType::InterfaceMethodDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#interfaceMethodDeclaration}.
@@ -720,7 +734,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_interfaceMethodModifier(&mut self, _ctx: &InterfaceMethodModifierContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::InterfaceMethodModifier));
+            .push(Metadata::new(MetaType::InterfaceMethodModifier));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#interfaceMethodModifier}.
@@ -741,7 +755,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &GenericInterfaceMethodDeclarationContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::GenericInterfaceMethodDeclaration));
+            .push(Metadata::new(MetaType::GenericInterfaceMethodDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#genericInterfaceMethodDeclaration}.
@@ -765,7 +779,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &InterfaceCommonBodyDeclarationContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::InterfaceCommonBodyDeclaration));
+            .push(Metadata::new(MetaType::InterfaceCommonBodyDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#interfaceCommonBodyDeclaration}.
@@ -786,7 +800,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_variableDeclarators(&mut self, _ctx: &VariableDeclaratorsContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::VariableDeclarators));
+            .push(Metadata::new(MetaType::VariableDeclarators));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#variableDeclarators}.
@@ -804,7 +818,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_variableDeclarator(&mut self, _ctx: &VariableDeclaratorContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::VariableDeclarator));
+            .push(Metadata::new(MetaType::VariableDeclarator));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#variableDeclarator}.
@@ -822,7 +836,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_variableDeclaratorId(&mut self, _ctx: &VariableDeclaratorIdContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::VariableDeclaratorId));
+            .push(Metadata::new(MetaType::VariableDeclaratorId));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#variableDeclaratorId}.
@@ -840,7 +854,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_variableInitializer(&mut self, _ctx: &VariableInitializerContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::VariableInitializer));
+            .push(Metadata::new(MetaType::VariableInitializer));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#variableInitializer}.
@@ -858,7 +872,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_arrayInitializer(&mut self, _ctx: &ArrayInitializerContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ArrayInitializer));
+            .push(Metadata::new(MetaType::ArrayInitializer));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#arrayInitializer}.
@@ -876,7 +890,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_classOrInterfaceType(&mut self, _ctx: &ClassOrInterfaceTypeContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ClassOrInterfaceType));
+            .push(Metadata::new(MetaType::ClassOrInterfaceType));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#classOrInterfaceType}.
@@ -893,7 +907,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_typeArgument(&mut self, _ctx: &TypeArgumentContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::TypeArgument));
+        self.stack_mut().push(Metadata::new(MetaType::TypeArgument));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeArgument}.
@@ -911,7 +925,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_qualifiedNameList(&mut self, _ctx: &QualifiedNameListContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::QualifiedNameList));
+            .push(Metadata::new(MetaType::QualifiedNameList));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#qualifiedNameList}.
@@ -929,7 +943,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_formalParameters(&mut self, _ctx: &FormalParametersContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::FormalParameters));
+            .push(Metadata::new(MetaType::FormalParameters));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#formalParameters}.
@@ -947,7 +961,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_receiverParameter(&mut self, _ctx: &ReceiverParameterContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ReceiverParameter));
+            .push(Metadata::new(MetaType::ReceiverParameter));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#receiverParameter}.
@@ -965,7 +979,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_formalParameterList(&mut self, _ctx: &FormalParameterListContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::FormalParameterList));
+            .push(Metadata::new(MetaType::FormalParameterList));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#formalParameterList}.
@@ -983,7 +997,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_formalParameter(&mut self, _ctx: &FormalParameterContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::FormalParameter));
+            .push(Metadata::new(MetaType::FormalParameter));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#formalParameter}.
@@ -1001,7 +1015,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_lastFormalParameter(&mut self, _ctx: &LastFormalParameterContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::LastFormalParameter));
+            .push(Metadata::new(MetaType::LastFormalParameter));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#lastFormalParameter}.
@@ -1019,7 +1033,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_lambdaLVTIList(&mut self, _ctx: &LambdaLVTIListContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::LambdaLVTIList));
+            .push(Metadata::new(MetaType::LambdaLVTIList));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#lambdaLVTIList}.
@@ -1037,7 +1051,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_lambdaLVTIParameter(&mut self, _ctx: &LambdaLVTIParameterContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::LambdaLVTIParameter));
+            .push(Metadata::new(MetaType::LambdaLVTIParameter));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#lambdaLVTIParameter}.
@@ -1055,7 +1069,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_qualifiedName(&mut self, _ctx: &QualifiedNameContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::QualifiedName));
+            .push(Metadata::new(MetaType::QualifiedName));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#qualifiedName}.
@@ -1072,7 +1086,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_literal(&mut self, _ctx: &LiteralContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Literal));
+        self.stack_mut().push(Metadata::new(MetaType::Literal));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#literal}.
@@ -1090,7 +1104,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_integerLiteral(&mut self, _ctx: &IntegerLiteralContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::IntegerLiteral));
+            .push(Metadata::new(MetaType::IntegerLiteral));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#integerLiteral}.
@@ -1107,7 +1121,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_floatLiteral(&mut self, _ctx: &FloatLiteralContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::FloatLiteral));
+        self.stack_mut().push(Metadata::new(MetaType::FloatLiteral));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#floatLiteral}.
@@ -1128,7 +1142,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &AltAnnotationQualifiedNameContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AltAnnotationQualifiedName));
+            .push(Metadata::new(MetaType::AltAnnotationQualifiedName));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#altAnnotationQualifiedName}.
@@ -1148,7 +1162,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_annotation(&mut self, _ctx: &AnnotationContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Annotation));
+        self.stack_mut().push(Metadata::new(MetaType::Annotation));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotation}.
@@ -1166,7 +1180,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_elementValuePairs(&mut self, _ctx: &ElementValuePairsContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ElementValuePairs));
+            .push(Metadata::new(MetaType::ElementValuePairs));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#elementValuePairs}.
@@ -1184,7 +1198,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_elementValuePair(&mut self, _ctx: &ElementValuePairContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ElementValuePair));
+            .push(Metadata::new(MetaType::ElementValuePair));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#elementValuePair}.
@@ -1201,7 +1215,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_elementValue(&mut self, _ctx: &ElementValueContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::ElementValue));
+        self.stack_mut().push(Metadata::new(MetaType::ElementValue));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#elementValue}.
@@ -1222,7 +1236,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &ElementValueArrayInitializerContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ElementValueArrayInitializer));
+            .push(Metadata::new(MetaType::ElementValueArrayInitializer));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#elementValueArrayInitializer}.
@@ -1243,7 +1257,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_annotationTypeDeclaration(&mut self, _ctx: &AnnotationTypeDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AnnotationTypeDeclaration));
+            .push(Metadata::new(MetaType::AnnotationTypeDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotationTypeDeclaration}.
@@ -1261,7 +1275,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_annotationTypeBody(&mut self, _ctx: &AnnotationTypeBodyContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AnnotationTypeBody));
+            .push(Metadata::new(MetaType::AnnotationTypeBody));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotationTypeBody}.
@@ -1282,7 +1296,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &AnnotationTypeElementDeclarationContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AnnotationTypeElementDeclaration));
+            .push(Metadata::new(MetaType::AnnotationTypeElementDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotationTypeElementDeclaration}.
@@ -1303,7 +1317,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_annotationTypeElementRest(&mut self, _ctx: &AnnotationTypeElementRestContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AnnotationTypeElementRest));
+            .push(Metadata::new(MetaType::AnnotationTypeElementRest));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotationTypeElementRest}.
@@ -1324,7 +1338,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &AnnotationMethodOrConstantRestContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AnnotationMethodOrConstantRest));
+            .push(Metadata::new(MetaType::AnnotationMethodOrConstantRest));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotationMethodOrConstantRest}.
@@ -1345,7 +1359,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_annotationMethodRest(&mut self, _ctx: &AnnotationMethodRestContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AnnotationMethodRest));
+            .push(Metadata::new(MetaType::AnnotationMethodRest));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotationMethodRest}.
@@ -1363,7 +1377,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_annotationConstantRest(&mut self, _ctx: &AnnotationConstantRestContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::AnnotationConstantRest));
+            .push(Metadata::new(MetaType::AnnotationConstantRest));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#annotationConstantRest}.
@@ -1380,7 +1394,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_defaultValue(&mut self, _ctx: &DefaultValueContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::DefaultValue));
+        self.stack_mut().push(Metadata::new(MetaType::DefaultValue));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#defaultValue}.
@@ -1398,7 +1412,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_moduleDeclaration(&mut self, _ctx: &ModuleDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ModuleDeclaration));
+            .push(Metadata::new(MetaType::ModuleDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#moduleDeclaration}.
@@ -1415,7 +1429,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_moduleBody(&mut self, _ctx: &ModuleBodyContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::ModuleBody));
+        self.stack_mut().push(Metadata::new(MetaType::ModuleBody));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#moduleBody}.
@@ -1433,7 +1447,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_moduleDirective(&mut self, _ctx: &ModuleDirectiveContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ModuleDirective));
+            .push(Metadata::new(MetaType::ModuleDirective));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#moduleDirective}.
@@ -1451,7 +1465,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_requiresModifier(&mut self, _ctx: &RequiresModifierContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::RequiresModifier));
+            .push(Metadata::new(MetaType::RequiresModifier));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#requiresModifier}.
@@ -1469,7 +1483,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_recordDeclaration(&mut self, _ctx: &RecordDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::RecordDeclaration));
+            .push(Metadata::new(MetaType::RecordDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#recordDeclaration}.
@@ -1486,7 +1500,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_recordHeader(&mut self, _ctx: &RecordHeaderContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::RecordHeader));
+        self.stack_mut().push(Metadata::new(MetaType::RecordHeader));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#recordHeader}.
@@ -1504,7 +1518,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_recordComponentList(&mut self, _ctx: &RecordComponentListContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::RecordComponentList));
+            .push(Metadata::new(MetaType::RecordComponentList));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#recordComponentList}.
@@ -1522,7 +1536,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_recordComponent(&mut self, _ctx: &RecordComponentContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::RecordComponent));
+            .push(Metadata::new(MetaType::RecordComponent));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#recordComponent}.
@@ -1539,7 +1553,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_recordBody(&mut self, _ctx: &RecordBodyContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::RecordBody));
+        self.stack_mut().push(Metadata::new(MetaType::RecordBody));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#recordBody}.
@@ -1556,7 +1570,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_block(&mut self, _ctx: &BlockContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Block));
+        self.stack_mut().push(Metadata::new(MetaType::Block));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#block}.
@@ -1574,7 +1588,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_blockStatement(&mut self, _ctx: &BlockStatementContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::BlockStatement));
+            .push(Metadata::new(MetaType::BlockStatement));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#blockStatement}.
@@ -1592,7 +1606,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_localVariableDeclaration(&mut self, _ctx: &LocalVariableDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::LocalVariableDeclaration));
+            .push(Metadata::new(MetaType::LocalVariableDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#localVariableDeclaration}.
@@ -1609,7 +1623,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_identifier(&mut self, _ctx: &IdentifierContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Identifier));
+        self.stack_mut().push(Metadata::new(MetaType::Identifier));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#identifier}.
@@ -1627,7 +1641,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_typeIdentifier(&mut self, _ctx: &TypeIdentifierContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::TypeIdentifier));
+            .push(Metadata::new(MetaType::TypeIdentifier));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeIdentifier}.
@@ -1645,7 +1659,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_localTypeDeclaration(&mut self, _ctx: &LocalTypeDeclarationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::LocalTypeDeclaration));
+            .push(Metadata::new(MetaType::LocalTypeDeclaration));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#localTypeDeclaration}.
@@ -1662,7 +1676,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_statement(&mut self, _ctx: &StatementContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Statement));
+        self.stack_mut().push(Metadata::new(MetaType::Statement));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#statement}.
@@ -1679,7 +1693,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_catchClause(&mut self, _ctx: &CatchClauseContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::CatchClause));
+        self.stack_mut().push(Metadata::new(MetaType::CatchClause));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#catchClause}.
@@ -1696,7 +1710,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_catchType(&mut self, _ctx: &CatchTypeContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::CatchType));
+        self.stack_mut().push(Metadata::new(MetaType::CatchType));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#catchType}.
@@ -1713,7 +1727,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_finallyBlock(&mut self, _ctx: &FinallyBlockContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::FinallyBlock));
+        self.stack_mut().push(Metadata::new(MetaType::FinallyBlock));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#finallyBlock}.
@@ -1731,7 +1745,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_resourceSpecification(&mut self, _ctx: &ResourceSpecificationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ResourceSpecification));
+            .push(Metadata::new(MetaType::ResourceSpecification));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#resourceSpecification}.
@@ -1748,7 +1762,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_resources(&mut self, _ctx: &ResourcesContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Resources));
+        self.stack_mut().push(Metadata::new(MetaType::Resources));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#resources}.
@@ -1765,7 +1779,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_resource(&mut self, _ctx: &ResourceContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Resource));
+        self.stack_mut().push(Metadata::new(MetaType::Resource));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#resource}.
@@ -1783,7 +1797,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_switchBlockStatementGroup(&mut self, _ctx: &SwitchBlockStatementGroupContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::SwitchBlockStatementGroup));
+            .push(Metadata::new(MetaType::SwitchBlockStatementGroup));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#switchBlockStatementGroup}.
@@ -1800,7 +1814,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_switchLabel(&mut self, _ctx: &SwitchLabelContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::SwitchLabel));
+        self.stack_mut().push(Metadata::new(MetaType::SwitchLabel));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#switchLabel}.
@@ -1817,7 +1831,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_forControl(&mut self, _ctx: &ForControlContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::ForControl));
+        self.stack_mut().push(Metadata::new(MetaType::ForControl));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#forControl}.
@@ -1834,7 +1848,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_forInit(&mut self, _ctx: &ForInitContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::ForInit));
+        self.stack_mut().push(Metadata::new(MetaType::ForInit));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#forInit}.
@@ -1852,7 +1866,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_enhancedForControl(&mut self, _ctx: &EnhancedForControlContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::EnhancedForControl));
+            .push(Metadata::new(MetaType::EnhancedForControl));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#enhancedForControl}.
@@ -1870,7 +1884,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_parExpression(&mut self, _ctx: &ParExpressionContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ParExpression));
+            .push(Metadata::new(MetaType::ParExpression));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#parExpression}.
@@ -1888,7 +1902,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_expressionList(&mut self, _ctx: &ExpressionListContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ExpressionList));
+            .push(Metadata::new(MetaType::ExpressionList));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#expressionList}.
@@ -1905,7 +1919,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_methodCall(&mut self, _ctx: &MethodCallContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::MethodCall));
+        self.stack_mut().push(Metadata::new(MetaType::MethodCall));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#methodCall}.
@@ -1922,7 +1936,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_expression(&mut self, _ctx: &ExpressionContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Expression));
+        self.stack_mut().push(Metadata::new(MetaType::Expression));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#expression}.
@@ -1939,7 +1953,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_pattern(&mut self, _ctx: &PatternContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Pattern));
+        self.stack_mut().push(Metadata::new(MetaType::Pattern));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#pattern}.
@@ -1957,7 +1971,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_lambdaExpression(&mut self, _ctx: &LambdaExpressionContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::LambdaExpression));
+            .push(Metadata::new(MetaType::LambdaExpression));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#lambdaExpression}.
@@ -1975,7 +1989,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_lambdaParameters(&mut self, _ctx: &LambdaParametersContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::LambdaParameters));
+            .push(Metadata::new(MetaType::LambdaParameters));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#lambdaParameters}.
@@ -1992,7 +2006,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_lambdaBody(&mut self, _ctx: &LambdaBodyContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::LambdaBody));
+        self.stack_mut().push(Metadata::new(MetaType::LambdaBody));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#lambdaBody}.
@@ -2009,7 +2023,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_primary(&mut self, _ctx: &PrimaryContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Primary));
+        self.stack_mut().push(Metadata::new(MetaType::Primary));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#primary}.
@@ -2027,7 +2041,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_switchExpression(&mut self, _ctx: &SwitchExpressionContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::SwitchExpression));
+            .push(Metadata::new(MetaType::SwitchExpression));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#switchExpression}.
@@ -2045,7 +2059,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_switchLabeledRule(&mut self, _ctx: &SwitchLabeledRuleContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::SwitchLabeledRule));
+            .push(Metadata::new(MetaType::SwitchLabeledRule));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#switchLabeledRule}.
@@ -2063,7 +2077,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_guardedPattern(&mut self, _ctx: &GuardedPatternContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::GuardedPattern));
+            .push(Metadata::new(MetaType::GuardedPattern));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#guardedPattern}.
@@ -2081,7 +2095,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_switchRuleOutcome(&mut self, _ctx: &SwitchRuleOutcomeContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::SwitchRuleOutcome));
+            .push(Metadata::new(MetaType::SwitchRuleOutcome));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#switchRuleOutcome}.
@@ -2098,7 +2112,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_classType(&mut self, _ctx: &ClassTypeContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::ClassType));
+        self.stack_mut().push(Metadata::new(MetaType::ClassType));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#classType}.
@@ -2115,7 +2129,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_creator(&mut self, _ctx: &CreatorContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Creator));
+        self.stack_mut().push(Metadata::new(MetaType::Creator));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#creator}.
@@ -2132,7 +2146,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_createdName(&mut self, _ctx: &CreatedNameContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::CreatedName));
+        self.stack_mut().push(Metadata::new(MetaType::CreatedName));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#createdName}.
@@ -2149,7 +2163,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_innerCreator(&mut self, _ctx: &InnerCreatorContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::InnerCreator));
+        self.stack_mut().push(Metadata::new(MetaType::InnerCreator));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#innerCreator}.
@@ -2167,7 +2181,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_arrayCreatorRest(&mut self, _ctx: &ArrayCreatorRestContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ArrayCreatorRest));
+            .push(Metadata::new(MetaType::ArrayCreatorRest));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#arrayCreatorRest}.
@@ -2185,7 +2199,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_classCreatorRest(&mut self, _ctx: &ClassCreatorRestContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ClassCreatorRest));
+            .push(Metadata::new(MetaType::ClassCreatorRest));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#classCreatorRest}.
@@ -2203,7 +2217,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_explicitGenericInvocation(&mut self, _ctx: &ExplicitGenericInvocationContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ExplicitGenericInvocation));
+            .push(Metadata::new(MetaType::ExplicitGenericInvocation));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#explicitGenericInvocation}.
@@ -2221,7 +2235,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_typeArgumentsOrDiamond(&mut self, _ctx: &TypeArgumentsOrDiamondContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::TypeArgumentsOrDiamond));
+            .push(Metadata::new(MetaType::TypeArgumentsOrDiamond));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeArgumentsOrDiamond}.
@@ -2242,7 +2256,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &NonWildcardTypeArgumentsOrDiamondContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::NonWildcardTypeArgumentsOrDiamond));
+            .push(Metadata::new(MetaType::NonWildcardTypeArgumentsOrDiamond));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#nonWildcardTypeArgumentsOrDiamond}.
@@ -2263,7 +2277,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_nonWildcardTypeArguments(&mut self, _ctx: &NonWildcardTypeArgumentsContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::NonWildcardTypeArguments));
+            .push(Metadata::new(MetaType::NonWildcardTypeArguments));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#nonWildcardTypeArguments}.
@@ -2280,7 +2294,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_typeList(&mut self, _ctx: &TypeListContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::TypeList));
+        self.stack_mut().push(Metadata::new(MetaType::TypeList));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeList}.
@@ -2297,7 +2311,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_typeType(&mut self, _ctx: &TypeTypeContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::TypeType));
+        self.stack_mut().push(Metadata::new(MetaType::TypeType));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeType}.
@@ -2315,7 +2329,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_primitiveType(&mut self, _ctx: &PrimitiveTypeContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::PrimitiveType));
+            .push(Metadata::new(MetaType::PrimitiveType));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#primitiveType}.
@@ -2333,7 +2347,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn enter_typeArguments(&mut self, _ctx: &TypeArgumentsContext<'input>) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::TypeArguments));
+            .push(Metadata::new(MetaType::TypeArguments));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#typeArguments}.
@@ -2350,7 +2364,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_superSuffix(&mut self, _ctx: &SuperSuffixContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::SuperSuffix));
+        self.stack_mut().push(Metadata::new(MetaType::SuperSuffix));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#superSuffix}.
@@ -2371,7 +2385,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &ExplicitGenericInvocationSuffixContext<'input>,
     ) {
         self.stack_mut()
-            .push(JavaMeta::new(MetaType::ExplicitGenericInvocationSuffix));
+            .push(Metadata::new(MetaType::ExplicitGenericInvocationSuffix));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#explicitGenericInvocationSuffix}.
@@ -2391,7 +2405,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      * @param ctx the parse tree
      */
     fn enter_arguments(&mut self, _ctx: &ArgumentsContext<'input>) {
-        self.stack_mut().push(JavaMeta::new(MetaType::Arguments));
+        self.stack_mut().push(Metadata::new(MetaType::Arguments));
     }
     /**
      * Exit a parse tree produced by {@link JavaParser#arguments}.

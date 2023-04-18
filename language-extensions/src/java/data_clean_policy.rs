@@ -19,12 +19,17 @@ use suzaku_extension_sdk::{
             LanguageDataCleanPolicyError,
             LanguageDataCleanResult
         }, 
-        meta::IMeta, 
+        meta::{
+            IMeta, 
+            Metadata,
+        },
         meta_type::MetaType,
         element::{
             IElement,
             Elements,
-            ElementCategories, TypeDescriptor, ParamDescriptor
+            ElementCategories, 
+            TypeDescriptor, 
+            ParamDescriptor
         }
     },
     stack::Stack,
@@ -32,8 +37,7 @@ use suzaku_extension_sdk::{
 };
 
 use super::{
-    element::JavaElement, 
-    meta::JavaMeta
+    element::JavaElement
 };
 
 pub struct JavaDataCleanListener {
@@ -46,7 +50,7 @@ impl JavaDataCleanListener {
         self.vertexes.clone()
     }
 
-    fn enter(&mut self, node: &JavaMeta) {
+    fn enter(&mut self, node: &Metadata) {
         match node.get_node_type() {
             MetaType::PackageDeclaration => self.analysis_package_declaration(node),
             MetaType::ImportDeclaration => self.analysis_import_declaration(node),
@@ -64,7 +68,7 @@ impl JavaDataCleanListener {
         }
     }
 
-    fn exit(&mut self, node: &JavaMeta) {
+    fn exit(&mut self, node: &Metadata) {
         let top = self.stack.top();
         if top.is_none() {
             return;
@@ -155,7 +159,7 @@ impl JavaDataCleanListener {
         }
     }
     
-    fn analysis_package_declaration(&mut self, node: &JavaMeta) {
+    fn analysis_package_declaration(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::PackageDeclaration);
         for member in node.get_members() {
             match member.get_node_type() {
@@ -172,7 +176,7 @@ impl JavaDataCleanListener {
         }
     }
 
-    fn analysis_import_declaration(&mut self, node: &JavaMeta) {
+    fn analysis_import_declaration(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::ImportDeclaration);
         for member in node.get_members() {
             match member.get_node_type() {
@@ -193,7 +197,7 @@ impl JavaDataCleanListener {
         }
     }
 
-    fn analysis_class_declaration(&mut self, node: &JavaMeta) {
+    fn analysis_class_declaration(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::ClassDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
@@ -249,7 +253,7 @@ impl JavaDataCleanListener {
         }
     }
 
-    fn analysis_interface_declaration(&mut self, node: &JavaMeta) {
+    fn analysis_interface_declaration(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::InterfaceDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
@@ -295,7 +299,7 @@ impl JavaDataCleanListener {
         }
     }
 
-    fn analysis_field_declaration(&mut self, node: &JavaMeta) {
+    fn analysis_field_declaration(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::FieldDeclaration);
 
         let mut modifiers: Vec<String> = Vec::new();
@@ -346,7 +350,7 @@ impl JavaDataCleanListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_method_declaration(&mut self, node: &JavaMeta) {
+    fn analysis_method_declaration(&mut self, node: &Metadata) {
         assert!(node.get_node_type() == MetaType::MethodDeclaration || node.get_node_type() == MetaType::InterfaceMethodDeclaration);
 
         // println!("{}", node.dump().unwrap());
@@ -430,7 +434,7 @@ impl JavaDataCleanListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_method_call(&mut self, node: &JavaMeta) {
+    fn analysis_method_call(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::MethodCall);
 
         let mut cast: Option<String> = None;
@@ -466,7 +470,7 @@ impl JavaDataCleanListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_creator(&mut self, node: &JavaMeta) {
+    fn analysis_creator(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::Creator);
 
         let mut creator_name: Vec<String> = Vec::new();
@@ -503,7 +507,7 @@ impl JavaDataCleanListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_constructor(&mut self, node: &JavaMeta) {
+    fn analysis_constructor(&mut self, node: &Metadata) {
         assert_eq!(node.get_node_type(), MetaType::ConstructorDeclaration);
 
         let mut modifiers: Vec<String> = Vec::new();
@@ -639,7 +643,7 @@ impl JavaDataCleanListener {
 pub struct JavaDataCleanPolicy;
 
 impl<'a> JavaDataCleanPolicy {
-    pub fn analysis(&mut self, node: &JavaMeta) -> LanguageDataCleanResult<HashMap<ElementCategories, Vec<JavaElement>>> {
+    pub fn analysis(&mut self, node: &Metadata) -> LanguageDataCleanResult<HashMap<ElementCategories, Vec<JavaElement>>> {
         assert_eq!(node.get_node_type(), MetaType::File);
 
         let mut node_listener = JavaDataCleanListener{
@@ -654,7 +658,7 @@ impl<'a> JavaDataCleanPolicy {
         Ok(data)
     }
 
-    fn node_tree_walker(node: &JavaMeta, listener: &mut JavaDataCleanListener) {
+    fn node_tree_walker(node: &Metadata, listener: &mut JavaDataCleanListener) {
         listener.enter(&node);
         for child in node.get_members() {
             JavaDataCleanPolicy::node_tree_walker(child, listener);
@@ -681,7 +685,7 @@ impl LanguageDataCleanPolicy for JavaDataCleanPolicy {
             deserializer.disable_recursion_limit();
             let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
             let v = Value::deserialize(deserializer).unwrap();
-            let context: JavaMeta = serde_json::from_value(v).unwrap();
+            let context: Metadata = serde_json::from_value(v).unwrap();
             // end solve issue
 
             if let Ok(jv) = self.analysis(&context) {

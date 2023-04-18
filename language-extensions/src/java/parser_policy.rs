@@ -18,16 +18,24 @@ use suzaku_extension_sdk::{
             LanguageParserPolicyError,
             LanguageParseResult,
         },
-        meta::IMeta,
-        meta_type::MetaType
+        meta::{
+            IMeta,
+            Metadata
+        },
+        meta_type::MetaType, 
+        reorganzier::LanguageMetaReorganizePolicy
     },
     METADATA_FILE_EXTENSION,
 };
 
-use super::meta::JavaMeta;
-use super::generated::javalexer::JavaLexer;
-use super::generated::javaparser::*;
-use super::parser_listener::ParserListener;
+use super::{
+    generated::{
+        javalexer::JavaLexer,
+        javaparser::*,
+    },
+    meta::JavaMetaReorganizePolicy,
+    parser_listener::ParserListener,
+};
 
 pub const SRC_FILE_EXTENSION: &str = "java";
 
@@ -35,7 +43,7 @@ pub const SRC_FILE_EXTENSION: &str = "java";
 pub struct JavaParserPolicy;
 
 impl JavaParserPolicy {
-    fn parse(&self, src: &PathBuf) -> Option<JavaMeta> {
+    fn parse(&self, src: &PathBuf) -> Option<Metadata> {
         if src.is_file() && src.exists() {
             let content = fs::read_to_string(src).expect("should read context of file");
             let data = InputStream::new(content.trim());
@@ -43,9 +51,11 @@ impl JavaParserPolicy {
             let lexer = JavaLexer::new(data);
             let token_source = CommonTokenStream::new(lexer);
     
-            let mut file_node = JavaMeta::new(MetaType::File);
+            let mut file_node = Metadata::new(MetaType::File);
             file_node.set_attr(src.to_str().unwrap());
-            let parser_listener: ParserListener = ParserListener::new(file_node);
+
+            let reorganizer = JavaMetaReorganizePolicy::new();
+            let parser_listener: ParserListener = ParserListener::new(file_node, Some(reorganizer));
     
             let mut parser = JavaParser::new(token_source);
             let listener_id = parser.add_parse_listener(Box::new(parser_listener));
