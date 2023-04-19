@@ -168,8 +168,11 @@ fn main() {
                     format!("{}: {}", e, output.to_str().unwrap())).exit();
             }
 
-            match suzaku_core::analysis(&validated_vertexes, &output_dir.unwrap()) {
-                Ok(vertex_files_folder) => println!("Anslysed results already stored at: {}", vertex_files_folder.to_str().unwrap()),
+            match suzaku_core::analysis(&validated_vertexes, &output_dir.as_ref().unwrap()) {
+                Ok(vertex_file) => {
+                    println!("Anslysed results already stored at: {}", vertex_file.to_str().unwrap());
+                    suzaku_core::report(&vertex_file, output_dir.as_ref().unwrap());
+                },
                 Err(err) => panic!("[ERROR] {:?}", err)
             }
         },

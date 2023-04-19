@@ -1,15 +1,25 @@
 use suzaku_extension_sdk::{
     language::{
-        parser::{LanguageParserPolicy, LanguageParsePolicyInfo}, 
+        parser::{
+            LanguageParserPolicy, 
+            LanguageParsePolicyInfo
+        }, 
         data_cleaner::LanguageDataCleanPolicy,
-        analyzer::LanguageAnalysisPolicy, mapper::LanguageMapPolicy,
+        analyzer::LanguageAnalysisPolicy, 
+        mapper::LanguageMapPolicy, 
+        reporter::Reporter,
     }
 };
 use suzaku_language_extensions::{
     java::{
-        parser_policy::{JavaParserPolicy, JavaParserPolicyInfo},
+        parser_policy::{
+            JavaParserPolicy, 
+            JavaParserPolicyInfo
+        },
         data_clean_policy::JavaDataCleanPolicy,
-        analyzer_policy::JavaAnalyzer, mapper_policy::JavaMapperPolicy,
+        analyzer_policy::JavaAnalyzer,
+        mapper_policy::JavaMapperPolicy, 
+        graphviz_reporter::GraphvizReporter,
     },
 };
 
@@ -34,5 +44,9 @@ impl ExtensionFactory {
 
     pub fn get_analysis_policy(language: &str) -> Option<impl LanguageAnalysisPolicy> {
         Some(JavaAnalyzer::new())
+    }
+
+    pub fn get_reporter(reportor_name: &str) -> Option<impl Reporter> {
+        Some(GraphvizReporter::new())
     }
 }

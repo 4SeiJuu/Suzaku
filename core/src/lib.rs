@@ -20,7 +20,11 @@ use suzaku_extension_sdk::{
             LanguageAnalysisPolicy,
             LanguageAnalysisResult,
             LanguageAnalysisPolicyError
-        }, mapper::LanguageMapPolicy,
+        }, mapper::LanguageMapPolicy, 
+        reporter::{
+            Reporter, 
+            ReporterError
+        },
     },
     utils, 
     METADATA_FOLDER_NAME,
@@ -160,4 +164,11 @@ pub fn analysis(vertexes_file: &PathBuf, output_dir: &PathBuf) -> LanguageAnalys
         Some(mut analyzer) => analyzer.execute(vertexes_file, output_dir),
         None => Err(LanguageAnalysisPolicyError {})
     }
+}
+
+pub fn report(data: &PathBuf, output_dir: &PathBuf) {
+    _ = match languages::ExtensionFactory::get_reporter("") {
+        Some(reporter) => reporter.generate(data, output_dir),
+        None => Err(ReporterError {})
+    };
 }

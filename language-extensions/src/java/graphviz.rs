@@ -1,11 +1,16 @@
+use std::collections::HashMap;
+
+use serde::{
+    Serialize,
+    Deserialize
+};
+
 use suzaku_extension_sdk::language::element::{
     Elements, 
     ToSignature
 };
 
-
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphVertex {
     pub package: Option<Elements>,
     pub ty: Option<Elements>,
@@ -19,7 +24,13 @@ impl GraphVertex {
     }
 
     pub fn get_signature(&self) -> String {
-        self.ty.as_ref().unwrap().to_signature()
+        if let Some(element_type) = &self.ty {
+            return element_type.to_signature();
+        }
+        // if let Some(pkg) = &self.package {
+        //     return pkg.to_signature();
+        // }
+        String::from("")
     }
 
     pub fn get_package_name(&self) -> String {
@@ -38,6 +49,7 @@ impl GraphVertex {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphEdge {
     pub from: GraphVertex,
     pub to: GraphVertex
@@ -45,6 +57,12 @@ pub struct GraphEdge {
 
 impl GraphEdge {
     pub fn to_graphviz_edge(&self) -> String {
-        format!("{} -> {}", self.from.get_signature(), self.to.get_package_name())
+        format!("{} -> {}", self.from.get_signature(), self.to.get_signature())
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphData {
+    pub depends: Vec<GraphEdge>,
+    pub elements: HashMap<String, GraphVertex>
 }

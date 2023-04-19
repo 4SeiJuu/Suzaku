@@ -69,8 +69,8 @@
             },
             "args": [
                 "analysis",
-                "-v",
-                "./temp/all.vertex",
+                "-d",
+                "./temp/all.ele",
                 "-o",
                 "./temp"
             ],
