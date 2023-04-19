@@ -16,6 +16,7 @@ use suzaku_extension_sdk::{
             LanguageParserPolicy, 
             LanguageParsePolicyInfo,
             LanguageParserPolicyError,
+            LanguageParserListener,
             LanguageParseResult,
         },
         meta::{
@@ -55,7 +56,7 @@ impl JavaParserPolicy {
             file_node.set_attr(src.to_str().unwrap());
 
             let reorganizer = JavaMetaReorganizePolicy::new();
-            let parser_listener: ParserListener = ParserListener::new(file_node, Some(reorganizer));
+            let parser_listener: ParserListener = ParserListener::new(file_node, Some(Box::new(reorganizer)));
     
             let mut parser = JavaParser::new(token_source);
             let listener_id = parser.add_parse_listener(Box::new(parser_listener));

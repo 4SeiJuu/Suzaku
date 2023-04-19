@@ -16,7 +16,8 @@ use suzaku_extension_sdk::{
             Metadata
         },
         meta_type::MetaType,
-        reorganzier::LanguageMetaReorganizePolicy
+        reorganzier::LanguageMetaReorganizePolicy, 
+        parser::LanguageParserListener
     }
 };
 
@@ -24,17 +25,16 @@ use super::{
     generated::{
         javaparserlistener::JavaParserListener,
         javaparser::*
-    }, 
-    meta::JavaMetaReorganizePolicy,
+    },
 };
 
 pub struct ParserListener {
     stack: Stack<Metadata>,
-    reorganizer: Option<JavaMetaReorganizePolicy>
+    reorganizer: Option<Box<dyn LanguageMetaReorganizePolicy>>
 }
 
-impl ParserListener {
-    pub fn new(root_node: Metadata, reorganizer: Option<JavaMetaReorganizePolicy>) -> Self {
+impl LanguageParserListener for ParserListener {
+    fn new(root_node: Metadata, reorganizer: Option<Box<dyn LanguageMetaReorganizePolicy>>) -> Self {
         let mut st = Stack::new();
         st.push(root_node);
         ParserListener {
@@ -43,7 +43,7 @@ impl ParserListener {
         }
     }
 
-    pub fn results(&mut self) -> Option<Metadata> {
+    fn results(&mut self) -> Option<Metadata> {
         self.stack_mut().pop()
     }
 
@@ -56,41 +56,10 @@ impl ParserListener {
         &mut self.stack
     }
 
-    fn update_node_attrs<T: Fn(&mut Metadata)>(&mut self, node_type: MetaType, update_attrs: T) -> Option<&Metadata> {
-        match self.stack().top() {
-            Some(top) => if top.get_node_type() != node_type {
-                panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}\n== Dump ======\n{}\n===============", 
-                    node_type, top.get_node_type(), self.stack().dump().unwrap());
-            },
-            None => panic!("[ERROR] invalid stack status. stack should not be empty.")
-        };
-
-        match self.stack_mut().top_mut() {
-            Some(top_node) => {
-                update_attrs(top_node);
-                Some(top_node)
-            },
-            None => panic!("[ERROR] invalid status. parent node not found.")
-        }
-    }
-
-    fn add_to_parent_member(&mut self) {
-        let mut poped_node = self
-            .stack_mut()
-            .pop()
-            .unwrap_or_else(|| panic!("[ERROR] invalid status. top node not found."));
-        
-        let children = match &mut self.reorganizer {
-            Some(ref mut reorg) => reorg.reorganize(&mut poped_node),
-            None => vec![poped_node]
-        };
-
-        let parent = self
-            .stack_mut()
-            .top_mut()
-            .unwrap_or_else(|| panic!("[ERROR] invalid status. parent node not found."));
-        for child in children {
-            parent.get_members_mut().push_back(child);
+    fn reorganizer(&mut self) -> Option<&mut dyn LanguageMetaReorganizePolicy> {
+        match &mut self.reorganizer {
+            Some(ref mut reorg) => Some(reorg.as_mut()),
+            None => None
         }
     }
 }
