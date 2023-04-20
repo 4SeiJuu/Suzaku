@@ -13,25 +13,23 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use suzaku_extension_sdk::{
-    language::{
-        data_cleaner::{
-            LanguageDataCleanPolicy,
-            LanguageDataCleanPolicyError,
-            LanguageDataCleanResult
-        }, 
-        meta::{
-            IMeta, 
-            Metadata,
-        },
-        meta_type::MetaType,
-        element::{
-            IElement,
-            Elements,
-            ElementCategories, 
-            TypeDescriptor, 
-            ParamDescriptor, 
-            Caller
-        }
+    extractor::{
+        LanguageDataExtractorPolicy,
+        LanguageDataExtractorPolicyError,
+        LanguageDataExtractorResult
+    }, 
+    meta::{
+        IMeta, 
+        Metadata,
+    },
+    meta_type::MetaType,
+    element::{
+        IElement,
+        Elements,
+        ElementCategories, 
+        TypeDescriptor, 
+        ParamDescriptor, 
+        Caller
     },
     stack::Stack,
     ELEMENT_FILE_EXTENSION, 
@@ -43,13 +41,13 @@ use super::{
 };
 
 pub struct JavaDataCleanListener {
-    vertexes: HashMap<ElementCategories, Vec<JavaElement>>,
+    elements: HashMap<ElementCategories, Vec<JavaElement>>,
     stack: Stack<JavaElement>
 }
 
 impl JavaDataCleanListener {
     pub fn results(&self) -> HashMap<ElementCategories, Vec<JavaElement>> {
-        self.vertexes.clone()
+        self.elements.clone()
     }
 
     fn enter(&mut self, node: &Metadata) {
@@ -78,10 +76,10 @@ impl JavaDataCleanListener {
 
         let ty = top.unwrap().get_type();
         if ty.is_none() {
-            panic!("[ERROR] invalid top node of stack. vertex type not found: {:?}", top);
+            panic!("[ERROR] invalid top node of stack. element type not found: {:?}", top);
         }
 
-        if let Some((category, vertex)) = match node.get_node_type() {
+        if let Some((category, element)) = match node.get_node_type() {
             MetaType::PackageDeclaration => {
                 if let Elements::Package(_) = ty.unwrap() {
                     Some((ElementCategories::Package, self.stack.pop()))
@@ -148,13 +146,13 @@ impl JavaDataCleanListener {
             },
             _ => None
         } {
-            if let Some(vertex) = vertex {
+            if let Some(element) = element {
                 if category == ElementCategories::Classes || category == ElementCategories::Interfaces {
-                    self.add_vertex(category, vertex)
+                    self.add_element(category, element)
                 } else {
-                    self.add_vertext_to_parent(category, vertex.clone());
+                    self.add_element_to_parent(category, element.clone());
                     if self.stack.empty() {
-                        self.add_vertex(category, vertex)
+                        self.add_element(category, element)
                     }
                 }
             }
@@ -597,29 +595,29 @@ impl JavaDataCleanListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn add_vertex(&mut self, category: ElementCategories, vertex: JavaElement) {
-        match self.vertexes.get_mut(&category) {
-            Some(vertexes) => _ = vertexes.push(vertex),
-            None => _ = self.vertexes.insert(category, vec![vertex]),
+    fn add_element(&mut self, category: ElementCategories, element: JavaElement) {
+        match self.elements.get_mut(&category) {
+            Some(eles) => _ = eles.push(element),
+            None => _ = self.elements.insert(category, vec![element]),
         }
     }
 
-    fn push_to_stack(&mut self, vertex: JavaElement) {
-        self.stack.push(vertex);
+    fn push_to_stack(&mut self, element: JavaElement) {
+        self.stack.push(element);
     }
 
-    fn add_vertext_to_parent(&mut self, category: ElementCategories, vertex: JavaElement) {
+    fn add_element_to_parent(&mut self, category: ElementCategories, element: JavaElement) {
         if self.stack.len() <= 0 {
             return;
         }
 
         if let Some(top) = self.stack.top_mut() {
-            top.add_member(category, vertex);
+            top.add_member(category, element);
         }
     }
 
     fn get_package_name(&self) -> Option<&Vec<String>> {
-        if let Some(packages) = self.vertexes.get(ElementCategories::Package.as_ref()) {
+        if let Some(packages) = self.elements.get(ElementCategories::Package.as_ref()) {
             if let Elements::Package(package_name) = packages.get(0).unwrap().get_type().unwrap() {
                 return Some(package_name)
             }
@@ -649,7 +647,7 @@ impl JavaDataCleanListener {
         let re = Regex::new(r"[\[|<].*[\]|>]").unwrap();
         let short_name = re.replace_all(short_name, "");
         
-        if let Some(imports) = self.vertexes.get(&ElementCategories::Imports) {
+        if let Some(imports) = self.elements.get(&ElementCategories::Imports) {
             for import in imports {
                 if let Some(ty) = import.get_type() {
                     if let Elements::Import(package) = ty {
@@ -666,14 +664,11 @@ impl JavaDataCleanListener {
     }
 
     fn get_caller(&self, caller_name: Vec<String>) -> Option<Caller> {
-        // println!("\n# get_caller begin");
-
         let cn = utils::vec_join::<String>(&caller_name, ".").unwrap();
         let mut index = self.stack.len();
         while index > 0 {
             index -= 1;
             if let Some(stack_item) = self.stack.get_by_index(index) {
-                // println!("{}", serde_json::to_string(&stack_item).unwrap());
                 if let Some(item_type) = stack_item.get_type() {
                     match item_type {
                         // ancestors, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
@@ -713,7 +708,6 @@ impl JavaDataCleanListener {
                 }
             }
         }
-        // println!("# get_caller end");
         None
     }
 }
@@ -721,11 +715,11 @@ impl JavaDataCleanListener {
 pub struct JavaDataCleanPolicy;
 
 impl<'a> JavaDataCleanPolicy {
-    pub fn analysis(&mut self, node: &Metadata) -> LanguageDataCleanResult<HashMap<ElementCategories, Vec<JavaElement>>> {
+    pub fn analysis(&mut self, node: &Metadata) -> LanguageDataExtractorResult<HashMap<ElementCategories, Vec<JavaElement>>> {
         assert_eq!(node.get_node_type(), MetaType::File);
 
         let mut node_listener = JavaDataCleanListener{
-            vertexes: HashMap::new(),
+            elements: HashMap::new(),
             stack: Stack::new(),
         };
         JavaDataCleanPolicy::node_tree_walker(&node, &mut node_listener);
@@ -745,12 +739,12 @@ impl<'a> JavaDataCleanPolicy {
     }
 }
 
-impl LanguageDataCleanPolicy for JavaDataCleanPolicy {
+impl LanguageDataExtractorPolicy for JavaDataCleanPolicy {
     fn new() -> Self {
         JavaDataCleanPolicy {}
     }
 
-    fn execute(&mut self, metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
+    fn execute(&mut self, metadata: &PathBuf, output: &PathBuf) -> LanguageDataExtractorResult<PathBuf> {
         if metadata.is_file() && metadata.exists() {
             let context_str = fs::read_to_string(metadata).expect("should read context of file");
 
@@ -779,6 +773,6 @@ impl LanguageDataCleanPolicy for JavaDataCleanPolicy {
                 return Ok(output_file_path);
             }
         }
-        Err(LanguageDataCleanPolicyError {})
+        Err(LanguageDataExtractorPolicyError {})
     }
 }

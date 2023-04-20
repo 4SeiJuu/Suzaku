@@ -11,21 +11,19 @@ use antlr_rust::{
 };
 
 use suzaku_extension_sdk::{
-    language::{
-        parser::{
-            LanguageParserPolicy, 
-            LanguageParsePolicyInfo,
-            LanguageParserPolicyError,
-            LanguageParserListener,
-            LanguageParseResult,
-        },
-        meta::{
-            IMeta,
-            Metadata
-        },
-        meta_type::MetaType, 
-        reorganzier::LanguageMetaReorganizePolicy
+    parser::{
+        LanguageParserPolicy, 
+        LanguageParsePolicyInfo,
+        LanguageParserPolicyError,
+        LanguageParserListener,
+        LanguageParseResult,
     },
+    meta::{
+        IMeta,
+        Metadata
+    },
+    meta_type::MetaType, 
+    reorganzier::LanguageMetaReorganizePolicy,
     METADATA_FILE_EXTENSION,
 };
 

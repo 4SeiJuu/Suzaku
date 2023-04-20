@@ -1,9 +1,10 @@
-use serde::{Serialize, Deserialize};
+use serde::{
+    Serialize, 
+    Deserialize
+};
 use strum::EnumIter;
 
 use crate::utils::vec_join;
-
-use super::super::utils;
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Copy, EnumIter)]
 pub enum ElementCategories {
@@ -37,14 +38,14 @@ pub struct TypeDescriptor {
 
 impl TypeDescriptor {
     pub fn get_package_str(&self) -> String {
-        match utils::vec_join(&self.package, ".") {
+        match vec_join(&self.package, ".") {
             Some(v) => v,
             None => String::from("")
         }
     }
 
     pub fn get_name_str(&self) -> String {
-        match utils::vec_join(&self.name, "::") {
+        match vec_join(&self.name, "::") {
             Some(v) => v,
             None => String::from("")
         }
@@ -61,7 +62,7 @@ impl TypeDescriptor {
 impl ToString for TypeDescriptor {
     fn to_string(&self) -> String {
         let name_string = vec_join(&self.name, "::");
-        match utils::vec_join(&self.package, ".") {
+        match vec_join(&self.package, ".") {
             Some(p) => match name_string {
                 Some(n) => format!("{}.{}", p, n),
                 None => p
@@ -77,7 +78,7 @@ impl ToString for TypeDescriptor {
 impl ToSignature for TypeDescriptor {
     fn to_signature(&self) -> String {
         let name_signature = vec_join(&self.name, "_");
-        match utils::vec_join(&self.package, "_") {
+        match vec_join(&self.package, "_") {
             Some(p) => match name_signature {
                 Some(n) => format!("{}_{}", p, n),
                 None => p
@@ -166,7 +167,7 @@ impl AsRef<Elements> for Elements {
 impl ToString for Elements {
     fn to_string(&self) -> String {
         let vec_to_string = |v: &Vec<String>, sep: &str| -> String {
-            match utils::vec_join(v, sep) {
+            match vec_join(v, sep) {
                 Some(s) => s,
                 None => String::from("")
             }
@@ -224,7 +225,7 @@ impl ToString for Elements {
 impl ToSignature for Elements {
     fn to_signature(&self) -> String {
         let vec_to_string = |v: &Vec<String>, sep: &str| -> String {
-            match utils::vec_join(v, sep) {
+            match vec_join(v, sep) {
                 Some(s) => s,
                 None => String::from("")
             }

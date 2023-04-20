@@ -10,15 +10,13 @@ use antlr_rust::{
 
 use suzaku_extension_sdk::{
     stack::Stack,
-    language::{
-        meta::{
-            IMeta, 
-            Metadata
-        },
-        meta_type::MetaType,
-        reorganzier::LanguageMetaReorganizePolicy, 
-        parser::LanguageParserListener
-    }
+    meta::{
+        IMeta, 
+        Metadata
+    },
+    meta_type::MetaType,
+    reorganzier::LanguageMetaReorganizePolicy, 
+    parser::LanguageParserListener,
 };
 
 use super::{

@@ -10,19 +10,17 @@ use std::{
 use serde::Serialize;
 
 use suzaku_extension_sdk::{
-    language::{
-        analyzer::{
-            LanguageAnalysisPolicy,
-            LanguageAnalysisResult, 
-            LanguageAnalysisPolicyError,
-        }, 
-        element::{
-            Elements, 
-            ElementCategories, 
-            IElement, 
-            ToSignature, 
-            TypeDescriptor
-        }
+    analyzer::{
+        LanguageAnalysisPolicy,
+        LanguageAnalysisResult, 
+        LanguageAnalysisPolicyError,
+    }, 
+    element::{
+        Elements, 
+        ElementCategories, 
+        IElement, 
+        ToSignature, 
+        TypeDescriptor
     },
 };
 
@@ -288,7 +286,6 @@ impl JavaAnalyzer {
     }
 
     fn collect_depends_by_type_descriptor(&self, type_descriptor: &TypeDescriptor) -> Option<(GraphVertex, bool)> {
-        println!("{}", &type_descriptor.to_signature());
         match self.elements.get(&type_descriptor.to_signature()) {
             Some(vertex) => Some((GraphVertex {
                 package: vertex.package.clone(),
@@ -341,7 +338,6 @@ impl LanguageAnalysisPolicy for JavaAnalyzer {
                 },
                 Err(err) => {
                     println!("failed"); // loading elements failed
-                    println!("{:?}", err);
                     return Err(LanguageAnalysisPolicyError {})
                 }
             }

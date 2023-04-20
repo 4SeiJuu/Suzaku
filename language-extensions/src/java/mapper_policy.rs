@@ -13,23 +13,21 @@ use serde_json::Value;
 use strum::IntoEnumIterator;
 
 use suzaku_extension_sdk::{
-    language::{
-        analyzer::{
-            LanguageAnalysisResult,
-            LanguageAnalysisPolicyError
-        }, 
-        element::{
-            Elements, 
-            ElementCategories, 
-            IElement, 
-            TypeDescriptor, 
-            ParamDescriptor, 
-            Caller
-        }, 
-        mapper::{
-            LanguageMapResult, 
-            LanguageMapPolicy
-        }
+    analyzer::{
+        LanguageAnalysisResult,
+        LanguageAnalysisPolicyError
+    }, 
+    element::{
+        Elements, 
+        ElementCategories, 
+        IElement, 
+        TypeDescriptor, 
+        ParamDescriptor, 
+        Caller
+    }, 
+    mapper::{
+        LanguageDataMapperResult, 
+        LanguageDataMapperPolicy
     },
     utils, 
     ELEMENT_FILE_EXTENSION
@@ -42,7 +40,7 @@ struct JavaDataMappingListener {
 }
 
 impl JavaDataMappingListener {
-    fn map(&self, vertex: &mut JavaElement) {
+    fn map(&self, element: &mut JavaElement) {
         let mapping = |ty: &TypeDescriptor| -> Option<TypeDescriptor> {
             for (name, td) in &self.types {
                 if name.as_str() == ty.to_string() || name.ends_with(&ty.to_string()) {
@@ -58,7 +56,7 @@ impl JavaDataMappingListener {
             None
         };
 
-        if let Some(vt) = vertex.get_type() {
+        if let Some(vt) = element.get_type() {
             if let Some(new_vt) = match vt {
                 // ancestors, annotations, modifiers, name, extends, implements
                 Elements::Class(ancestors, annotations, modifiers, name, extends, implements) => {
@@ -152,7 +150,7 @@ impl JavaDataMappingListener {
                 },
                 _ => None
             } {
-                vertex.set_type(Some(new_vt));
+                element.set_type(Some(new_vt));
             }
         }
     }
@@ -161,7 +159,7 @@ impl JavaDataMappingListener {
 pub struct JavaMapperPolicy;
 
 impl JavaMapperPolicy {
-    pub fn load_vertex_from_file(&self, path: &PathBuf) -> LanguageAnalysisResult<HashMap<ElementCategories, Vec<JavaElement>>> {
+    pub fn load_elements_from_file(&self, path: &PathBuf) -> LanguageAnalysisResult<HashMap<ElementCategories, Vec<JavaElement>>> {
         let context_str = fs::read_to_string(path).expect("should read context of file");
         
         let mut deserializer = serde_json::Deserializer::from_str(&context_str);
@@ -195,7 +193,6 @@ impl JavaMapperPolicy {
                             }
 
                             if let Some(td) = match vt {
-                                // VertexType::Import(ty) => Some(ty.clone()),
                                 // ancestors, annotations, modifiers, name, extends, implements
                                 Elements::Class(ancestors, _, _, name, _, _) =>
                                     Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
@@ -216,19 +213,19 @@ impl JavaMapperPolicy {
     }
 
     fn mapping(&self, data: &mut HashMap<ElementCategories, Vec<JavaElement>>, listener: &mut JavaDataMappingListener) {
-        // go through the vertexes
+        // go through the elements
         for (_, jvs) in data {
             for jv in jvs {
-                self.vertex_tree_walker(jv, listener)
+                self.element_tree_walker(jv, listener)
             }
         }
     }
 
-    fn vertex_tree_walker(&self, vertex: &mut JavaElement, listener: &mut JavaDataMappingListener) {
-        listener.map(vertex);
+    fn element_tree_walker(&self, element: &mut JavaElement, listener: &mut JavaDataMappingListener) {
+        listener.map(element);
 
         for cate in ElementCategories::iter() {
-            if let Some(members) = vertex.get_member_by_category_mut(cate) {
+            if let Some(members) = element.get_member_by_category_mut(cate) {
                 for jv in members {
                     listener.map(jv);
                 }
@@ -237,44 +234,46 @@ impl JavaMapperPolicy {
     }
 }
 
-impl LanguageMapPolicy for JavaMapperPolicy {
+impl LanguageDataMapperPolicy for JavaMapperPolicy {
     fn new() -> Self {
         JavaMapperPolicy {}
     }
 
-    fn execute(&mut self, data: &PathBuf, output: &PathBuf) -> LanguageMapResult<PathBuf> {
+    fn execute(&mut self, data: &Vec<PathBuf>, output: &PathBuf) -> LanguageDataMapperResult<PathBuf> {
         // collect all files
         let mut filelist: Vec<PathBuf> = Vec::new();
-        if data.is_file() {
-            filelist.push(data.to_path_buf());
-        } else {
-            let filename_pattern = format!("{}/**/*.{}", data.to_str().unwrap(), ELEMENT_FILE_EXTENSION);
-            if let Some(mut files) = utils::list_files(data, filename_pattern.as_str(), &Vec::new()) {
-                filelist.append(&mut files);
+        for df in data {
+            if df.is_file() {
+                filelist.push(df.to_path_buf());
+            } else {
+                let filename_pattern = format!("{}/**/*.{}", df.to_str().unwrap(), ELEMENT_FILE_EXTENSION);
+                if let Some(mut files) = utils::list_files(df, filename_pattern.as_str(), &Vec::new()) {
+                    filelist.append(&mut files);
+                }
             }
         }
 
-        let mut vertex_listener = JavaDataMappingListener {
+        let mut element_tree_listener = JavaDataMappingListener {
             types: HashMap::new()
         };
 
-        // load all vertexes
+        // load all elements
         println!("# Loading files ...");
         let total = filelist.len();
         let mut index = 1;
-        let mut all_vertexes: HashMap<ElementCategories, Vec<JavaElement>> = HashMap::new();
-        for vertex_file in filelist {
-            print!(" - [{} / {}] loading {} ... ", index, total, vertex_file.to_str().unwrap());
+        let mut all_elements: HashMap<ElementCategories, Vec<JavaElement>> = HashMap::new();
+        for elements_file in filelist {
+            print!(" - [{} / {}] loading {} ... ", index, total, elements_file.to_str().unwrap());
 
-            if let Ok(vertexes) = self.load_vertex_from_file(&PathBuf::from(vertex_file)) {
-                for (cate, mut vertex_list) in vertexes {
+            if let Ok(elements) = self.load_elements_from_file(&PathBuf::from(elements_file)) {
+                for (cate, mut element_list) in elements {
                     if cate == ElementCategories::Package || cate == ElementCategories::Imports {
                         continue;
                     }
 
-                    match all_vertexes.get_mut(&cate) {
-                        Some(list) => list.append(&mut vertex_list),
-                        None => _ = all_vertexes.insert(cate, Vec::from(vertex_list))
+                    match all_elements.get_mut(&cate) {
+                        Some(list) => list.append(&mut element_list),
+                        None => _ = all_elements.insert(cate, Vec::from(element_list))
                     };
                 }
             }
@@ -287,22 +286,22 @@ impl LanguageMapPolicy for JavaMapperPolicy {
 
         // collect all types
         print!("# collecting types ... ");
-        self.collecting(&all_vertexes, &mut vertex_listener);
+        self.collecting(&all_elements, &mut element_tree_listener);
         println!("done");
         println!("-------------------------------------------------");
-        println!(" total: {} types collected\n", vertex_listener.types.len());
+        println!(" total: {} types collected\n", element_tree_listener.types.len());
 
         // mapping types
         print!("# mapping types ... ");
-        self.mapping(&mut all_vertexes, &mut vertex_listener);
+        self.mapping(&mut all_elements, &mut element_tree_listener);
         println!("done\n");
 
-        // save all mapped vertexes
-        let mapped_vertexes_file = output.join(format!("{}.{}", "all", ELEMENT_FILE_EXTENSION));
-        if let Ok(mut f) = File::create(&mapped_vertexes_file) {
-            let _ = f.write_all(serde_json::to_string(&all_vertexes).unwrap().as_bytes());
+        // save all mapped elements
+        let mapped_elements_file = output.join(format!("{}.{}", "mapped", ELEMENT_FILE_EXTENSION));
+        if let Ok(mut f) = File::create(&mapped_elements_file) {
+            let _ = f.write_all(serde_json::to_string(&all_elements).unwrap().as_bytes());
             let _ = f.flush();
         }
-        Ok(mapped_vertexes_file)
+        Ok(mapped_elements_file)
     }
 }

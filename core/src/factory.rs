@@ -1,14 +1,12 @@
 use suzaku_extension_sdk::{
-    language::{
-        parser::{
-            LanguageParserPolicy, 
-            LanguageParsePolicyInfo
-        }, 
-        data_cleaner::LanguageDataCleanPolicy,
-        analyzer::LanguageAnalysisPolicy, 
-        mapper::LanguageMapPolicy, 
-        reporter::Reporter,
-    }
+    parser::{
+        LanguageParserPolicy, 
+        LanguageParsePolicyInfo
+    }, 
+    extractor::LanguageDataExtractorPolicy,
+    mapper::LanguageDataMapperPolicy, 
+    analyzer::LanguageAnalysisPolicy, 
+    reporter::Reporter,
 };
 use suzaku_language_extensions::{
     java::{
@@ -26,23 +24,23 @@ use suzaku_language_extensions::{
 pub struct ExtensionFactory {}
 
 impl ExtensionFactory {
-    pub fn get_parser_policy(_language: &str) -> Option<impl LanguageParserPolicy> {
-        Some(JavaParserPolicy::new())
-    }
-
     pub fn get_parse_policy_info(_language: &str) -> Option<impl LanguageParsePolicyInfo> {
         Some(JavaParserPolicyInfo{})
     }
 
-    pub fn get_data_clean_policy(language: &str) -> Option<impl LanguageDataCleanPolicy> {
+    pub fn get_parser_policy(_language: &str) -> Option<impl LanguageParserPolicy> {
+        Some(JavaParserPolicy::new())
+    }
+
+    pub fn get_data_extractor_policy(language: &str) -> Option<impl LanguageDataExtractorPolicy> {
         Some(JavaDataCleanPolicy::new())
     }
 
-    pub fn get_data_mapping_policy(language: &str) -> Option<impl LanguageMapPolicy> {
+    pub fn get_data_mapper_policy(language: &str) -> Option<impl LanguageDataMapperPolicy> {
         Some(JavaMapperPolicy::new())
     }
 
-    pub fn get_analysis_policy(language: &str) -> Option<impl LanguageAnalysisPolicy> {
+    pub fn get_analyzer_policy(language: &str) -> Option<impl LanguageAnalysisPolicy> {
         Some(JavaAnalyzer::new())
     }
 

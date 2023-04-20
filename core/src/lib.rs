@@ -4,27 +4,31 @@ use std::{
 };
 
 use suzaku_extension_sdk::{
-    language::{
-        parser::{
-            LanguageParserPolicy,
-            LanguageParsePolicyInfo,
-            LanguageParseResult,
-            LanguageParserPolicyError
-        },
-        data_cleaner::{
-            LanguageDataCleanPolicy,
-            LanguageDataCleanResult,
-            LanguageDataCleanPolicyError
-        },
-        analyzer::{
-            LanguageAnalysisPolicy,
-            LanguageAnalysisResult,
-            LanguageAnalysisPolicyError
-        }, mapper::LanguageMapPolicy, 
-        reporter::{
-            Reporter, 
-            ReporterError
-        },
+    parser::{
+        LanguageParserPolicy,
+        LanguageParsePolicyInfo,
+        LanguageParseResult,
+        LanguageParserPolicyError
+    },
+    extractor::{
+        LanguageDataExtractorPolicy,
+        LanguageDataExtractorResult,
+        LanguageDataExtractorPolicyError
+    },
+    analyzer::{
+        LanguageAnalysisPolicy,
+        LanguageAnalysisResult,
+        LanguageAnalysisPolicyError
+    }, 
+    mapper::{
+        LanguageDataMapperPolicy, 
+        LanguageDataMapperResult, 
+        LanguageDataMapperPolicyError
+    }, 
+    reporter::{
+        Reporter, 
+        ReporterError, 
+        ReporterResult
     },
     utils, 
     METADATA_FOLDER_NAME,
@@ -32,7 +36,7 @@ use suzaku_extension_sdk::{
     ELEMENT_FOLDER_NAME,
 };
 
-mod languages;
+mod factory;
 
 pub fn parse(sources: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBuf>) -> LanguageParseResult<PathBuf> {
     let metadata_dir = output_dir.join(METADATA_FOLDER_NAME);
@@ -44,7 +48,7 @@ pub fn parse(sources: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBu
 
     fn parsing(index: usize, total: usize, src: &PathBuf, output: &PathBuf) -> LanguageParseResult<PathBuf> {
         print!(" * parsing [{} / {}] '{}' -> ", index, total, src.to_str().unwrap());
-        match languages::ExtensionFactory::get_parser_policy("java") {
+        match factory::ExtensionFactory::get_parser_policy("java") {
             Some(parser) => {
                 match parser.execute(src, output) {
                     Ok(output_file_path) => {
@@ -68,7 +72,7 @@ pub fn parse(sources: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBu
     for source in sources {
         if source.is_file() {
             src_files.push(source.to_path_buf());
-        } else if let Some(exts) = languages::ExtensionFactory::get_parse_policy_info("java").unwrap().get_filename_extensions() {
+        } else if let Some(exts) = factory::ExtensionFactory::get_parse_policy_info("java").unwrap().get_filename_extensions() {
             for ext in exts {
                 let filename_pattern = format!("{}/**/*.{}", source.to_str().unwrap(), ext);
                 if let Some(mut files) = utils::list_files(source, filename_pattern.as_str(), &excludes) {
@@ -89,17 +93,17 @@ pub fn parse(sources: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBu
     Ok(metadata_dir)
 }
 
-pub fn data_clean(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBuf>) -> LanguageDataCleanResult<PathBuf> {
-    let vertex_dir = output_dir.join(ELEMENT_FOLDER_NAME);
-    if !vertex_dir.exists() {
-        if let Err(_) = fs::create_dir_all(&vertex_dir) {
-            return Err(LanguageDataCleanPolicyError {});
+pub fn extract(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<PathBuf>) -> LanguageDataExtractorResult<PathBuf> {
+    let elements_dir = output_dir.join(ELEMENT_FOLDER_NAME);
+    if !elements_dir.exists() {
+        if let Err(_) = fs::create_dir_all(&elements_dir) {
+            return Err(LanguageDataExtractorPolicyError {});
         }
     }
 
-    fn cleanning(index: usize, total: usize, metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
+    fn extracting(index: usize, total: usize, metadata: &PathBuf, output: &PathBuf) -> LanguageDataExtractorResult<PathBuf> {
         print!(" * data cleaning [{} / {}] '{}' -> ", index, total, metadata.to_str().unwrap());
-        match languages::ExtensionFactory::get_data_clean_policy("java") {
+        match factory::ExtensionFactory::get_data_extractor_policy("java") {
             Some(mut policy) => {
                 match policy.execute(metadata, output) {
                     Ok(output_file_path) => {
@@ -114,21 +118,8 @@ pub fn data_clean(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec
             },
             None => {
                 println!("failed to get policy");
-                Err(LanguageDataCleanPolicyError {})
+                Err(LanguageDataExtractorPolicyError {})
             }
-        }
-    }
-
-    fn mapping(metadata: &PathBuf, output: &PathBuf) -> LanguageDataCleanResult<PathBuf> {
-        print!(" * data mapping ... ");
-        match languages::ExtensionFactory::get_data_mapping_policy("java") {
-            Some(mut policy) => {
-                match policy.execute(metadata, output) {
-                    Ok(vertexes_file_path) => Ok(vertexes_file_path),
-                    Err(err) => Err(LanguageDataCleanPolicyError{})
-                }
-            },
-            None => Err(LanguageDataCleanPolicyError {})
         }
     }
 
@@ -149,26 +140,42 @@ pub fn data_clean(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec
     let mut index: usize = 1;
     let total: usize = metadata_files.len();
     for metadata_file in metadata_files {
-        if let Err(err) = cleanning(index, total, &metadata_file, &vertex_dir) {
+        if let Err(err) = extracting(index, total, &metadata_file, &elements_dir) {
             return Err(err);
         }
         index += 1;
     }
 
-    // mapping
-    mapping(&vertex_dir, &output_dir)
+    Ok(output_dir.clone())
 }
 
-pub fn analysis(vertexes_file: &PathBuf, output_dir: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
-    match languages::ExtensionFactory::get_analysis_policy("java") {
-        Some(mut analyzer) => analyzer.execute(vertexes_file, output_dir),
+pub fn map(elements: &Vec<PathBuf>, output: &PathBuf, excludes: &Vec<PathBuf>) -> LanguageDataMapperResult<PathBuf> {
+    print!(" * data mapping ... ");
+    match factory::ExtensionFactory::get_data_mapper_policy("java") {
+        Some(mut policy) => {
+            match policy.execute(elements, output) {
+                Ok(elements_file_path) => Ok(elements_file_path),
+                Err(err) => Err(LanguageDataMapperPolicyError{})
+            }
+        },
+        None => Err(LanguageDataMapperPolicyError {})
+    }
+}
+
+pub fn analysis(elements_file: &PathBuf, output_dir: &PathBuf) -> LanguageAnalysisResult<PathBuf> {
+    match factory::ExtensionFactory::get_analyzer_policy("java") {
+        Some(mut analyzer) => analyzer.execute(elements_file, output_dir),
         None => Err(LanguageAnalysisPolicyError {})
     }
 }
 
-pub fn report(data: &PathBuf, output_dir: &PathBuf) {
-    _ = match languages::ExtensionFactory::get_reporter("") {
+pub fn report(data: &PathBuf, output_dir: &PathBuf) -> ReporterResult<PathBuf> {
+    match factory::ExtensionFactory::get_reporter("") {
         Some(reporter) => reporter.generate(data, output_dir),
         None => Err(ReporterError {})
-    };
+    }
+}
+
+pub fn pipeline(config: &PathBuf, output_dir: &PathBuf) {
+
 }

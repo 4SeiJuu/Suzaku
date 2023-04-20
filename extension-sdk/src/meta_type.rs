@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use serde::{Serialize, Deserialize};
+use serde::{
+    Serialize, 
+    Deserialize
+};
 
 pub struct MetaTypeConvertError {}
 

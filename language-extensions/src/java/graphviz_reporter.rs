@@ -8,7 +8,7 @@ use std::{
 };
 
 use suzaku_extension_sdk::{
-    language::reporter::{
+    reporter::{
         Reporter, 
         ReporterResult, 
         ReporterError

@@ -2,7 +2,7 @@ use std::{
     collections::LinkedList
 };
 
-use suzaku_extension_sdk::language::{
+use suzaku_extension_sdk::{
     meta::{
         IMeta,
         Metadata

@@ -31,7 +31,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Data Clean",
+            "name": "Extract",
             "cargo": {
                 "args": [
                     "build",
@@ -44,9 +44,33 @@
                 }
             },
             "args": [
-                "data-clean",
+                "extract",
                 "-m",
-                "./temp/metadata/QuickAccessWalletClient.json",
+                "./temp/metadata",
+                "-o",
+                "./temp"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Map",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=suzaku-cli",
+                    "--package=suzaku-cli"
+                ],
+                "filter": {
+                    "name": "suzaku-cli",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "map",
+                "-e",
+                "./temp/elements",
                 "-o",
                 "./temp"
             ],
@@ -70,7 +94,31 @@
             "args": [
                 "analysis",
                 "-d",
-                "./temp/all.ele",
+                "./temp/mapped.ele",
+                "-o",
+                "./temp"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Report",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=suzaku-cli",
+                    "--package=suzaku-cli"
+                ],
+                "filter": {
+                    "name": "suzaku-cli",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "report",
+                "-d",
+                "./temp/analysed.data",
                 "-o",
                 "./temp"
             ],
