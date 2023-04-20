@@ -1,19 +1,31 @@
-use std::{path::PathBuf, fs::{self, File}, io::Write, collections::HashMap};
+use std::{
+    path::PathBuf, 
+    fs::{
+        self, 
+        File
+    }, 
+    io::Write, 
+    collections::HashMap
+};
 
 use serde::Deserialize;
 use serde_json::Value;
 use strum::IntoEnumIterator;
 
 use suzaku_extension_sdk::{
-    language::{analyzer::{
-        LanguageAnalysisResult,
-        LanguageAnalysisPolicyError
-    }, 
-    element::{
-        Elements, 
-        ElementCategories, 
-        IElement, 
-        TypeDescriptor}, 
+    language::{
+        analyzer::{
+            LanguageAnalysisResult,
+            LanguageAnalysisPolicyError
+        }, 
+        element::{
+            Elements, 
+            ElementCategories, 
+            IElement, 
+            TypeDescriptor, 
+            ParamDescriptor, 
+            Caller
+        }, 
         mapper::{
             LanguageMapResult, 
             LanguageMapPolicy
@@ -33,8 +45,14 @@ impl JavaDataMappingListener {
     fn map(&self, vertex: &mut JavaElement) {
         let mapping = |ty: &TypeDescriptor| -> Option<TypeDescriptor> {
             for (name, td) in &self.types {
-                if name.as_str() == ty.to_string() || name.ends_with(&ty.to_string()) || name.ends_with(ty.name.get(0).unwrap()) {
+                if name.as_str() == ty.to_string() || name.ends_with(&ty.to_string()) {
                     return Some(td.clone());
+                }
+
+                if let Some(first_name) = ty.name.get(0) {
+                    if name.ends_with(first_name) {
+                        return Some(td.clone())
+                    }
                 }
             }
             None
@@ -75,15 +93,63 @@ impl JavaDataMappingListener {
                     Some(Elements::Interface(ancestors.clone(), annotations.clone(), modifiers.clone(), name.to_string(), mapped_extends))
                 },
                 // ancestors, modifiers, field type, field name, field value
-                Elements::Field(_, _, field_type, _, _) => None,
+                Elements::Field(ancestors, modifiers, field_type, field_name, field_value) => {
+                    let mut mapped_field_type = None;
+                    if let Some(td) = field_type {
+                        mapped_field_type = mapping(td);
+                        if mapped_field_type.is_none() {
+                            mapped_field_type = field_type.clone();
+                        };
+                    }
+
+                    Some(Elements::Field(ancestors.clone(), modifiers.clone(), mapped_field_type, field_name.clone(), field_value.clone()))
+                },
                 // ancestors, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
-                Elements::Method(_, _annotations, _, ret_type, _, params) => None,
+                Elements::Method(ancestors, annotations, modifiers, ret_type, func_name, params) => {
+                    let mapped_ret_type = match mapping(ret_type) {
+                        Some(mapped_rt) => mapped_rt,
+                        None => ret_type.clone()
+                    };
+
+                    let mut mapped_params: Vec<ParamDescriptor> = Vec::new();
+                    for param in params {
+                        let mapped_param_type = match mapping(&param.ty) {
+                            Some(ty) => ty,
+                            None => param.ty.clone()
+                        };
+                        mapped_params.push(ParamDescriptor { modifiers: param.modifiers.clone(), ty: mapped_param_type, name: param.name.clone() });
+                    }
+
+                    Some(Elements::Method(ancestors.clone(), annotations.clone(), modifiers.clone(), mapped_ret_type, func_name.clone(), mapped_params))
+                },
                 // ancestors, modifiers, ident, params(modifiers, type, name)
-                Elements::Constructor(_, _, _, params) => None,
-                // package, name, rest
-                Elements::CreatorCall(_, _, rests) => None,
+                Elements::Constructor(ancestors, modifiers, ident, params) => {
+                    let mut mapped_params: Vec<ParamDescriptor> = Vec::new();
+                    for param in params {
+                        let mapped_param_type = match mapping(&param.ty) {
+                            Some(ty) => ty,
+                            None => param.ty.clone()
+                        };
+                        mapped_params.push(ParamDescriptor { modifiers: param.modifiers.clone(), ty: mapped_param_type, name: param.name.clone() });
+                    }
+
+                    Some(Elements::Constructor(ancestors.clone(), modifiers.clone(), ident.clone(), mapped_params))
+                },
+                // package, name, rest 
+                // TODO:
+                Elements::CreatorCall(creator_type, rests) => None,
                 // cast, caller, method name, params((annotation, type, name))
-                Elements::MethodCall(cast, _, _, params) => None,
+                Elements::MethodCall(cast, caller, method_name, params) => {
+                    let mut mapped_caller = match mapping(&caller.ty) {
+                        Some(mapped_caller_type) => Caller {
+                            ty: mapped_caller_type,
+                            name: caller.name.clone(),
+                        },
+                        None => caller.clone()
+                    };
+                    
+                    Some(Elements::MethodCall(cast.clone(), mapped_caller, method_name.clone(), params.clone()))
+                },
                 _ => None
             } {
                 vertex.set_type(Some(new_vt));

@@ -5,7 +5,7 @@ use std::{
         self, 
         File
     }, 
-    io::Write
+    io::Write,
 };
 
 use regex::Regex;
@@ -29,11 +29,13 @@ use suzaku_extension_sdk::{
             Elements,
             ElementCategories, 
             TypeDescriptor, 
-            ParamDescriptor
+            ParamDescriptor, 
+            Caller
         }
     },
     stack::Stack,
     ELEMENT_FILE_EXTENSION, 
+    utils, 
 };
 
 use super::{
@@ -131,7 +133,7 @@ impl JavaDataCleanListener {
                 }
             },
             MetaType::Creator => {
-                if let Elements::CreatorCall(_, _, _) = ty.unwrap() {
+                if let Elements::CreatorCall(_, _) = ty.unwrap() {
                     Some((ElementCategories::CreatorCalls, self.stack.pop()))
                 } else {
                     None
@@ -347,13 +349,12 @@ impl JavaDataCleanListener {
             Some(type_name) => Elements::Field(TypeDescriptor { package: package, name: type_name }, modifiers.clone(), ty, variable_id, variable_init),
             None => Elements::Field(TypeDescriptor { package: package, name: Vec::new() }, modifiers.clone(), ty, variable_id, variable_init)
         };
+
         self.push_to_stack(JavaElement::new(ty));
     }
 
     fn analysis_method_declaration(&mut self, node: &Metadata) {
         assert!(node.get_node_type() == MetaType::MethodDeclaration || node.get_node_type() == MetaType::InterfaceMethodDeclaration);
-
-        // println!("{}", node.dump().unwrap());
 
         let mut annotation: Option<String> = None;
         let mut modifiers: Vec<String> = Vec::new();
@@ -466,7 +467,32 @@ impl JavaDataCleanListener {
 
         assert!(idents.len() > 0);
         let ident = idents.swap_remove(idents.len() - 1);
-        let ty = Elements::MethodCall(cast, Some(idents.join(".")), ident, params);
+        let mut caller: Option<Caller> = None;
+        if idents.is_empty() {
+            caller = Some(Caller {
+                ty: TypeDescriptor {
+                    package: match self.get_package_name() {
+                        Some(pkg) => pkg.clone(),
+                        None => Vec::new()
+                    },
+                    name: match self.get_type_name() {
+                        Some(name) => name,
+                        None => Vec::new()
+                    }
+                },
+                name: Some(String::from("self"))
+            })
+        } else {
+            caller = self.get_caller(idents);
+        }
+
+        if caller.is_none() {
+            caller = Some(Caller {
+                ty: TypeDescriptor { package: Vec::new(), name: Vec::new() },
+                name: None
+            })
+        }
+        let ty = Elements::MethodCall(cast, caller.unwrap(), ident, params);
         self.push_to_stack(JavaElement::new(ty));
     }
 
@@ -503,7 +529,7 @@ impl JavaDataCleanListener {
             None => Vec::new()
         };
 
-        let ty = Elements::CreatorCall(package, creator_name, rests);
+        let ty = Elements::CreatorCall(TypeDescriptor { package: package, name: creator_name }, rests);
         self.push_to_stack(JavaElement::new(ty));
     }
 
@@ -636,6 +662,58 @@ impl JavaDataCleanListener {
                 }
             }
         }
+        None
+    }
+
+    fn get_caller(&self, caller_name: Vec<String>) -> Option<Caller> {
+        // println!("\n# get_caller begin");
+
+        let cn = utils::vec_join::<String>(&caller_name, ".").unwrap();
+        let mut index = self.stack.len();
+        while index > 0 {
+            index -= 1;
+            if let Some(stack_item) = self.stack.get_by_index(index) {
+                // println!("{}", serde_json::to_string(&stack_item).unwrap());
+                if let Some(item_type) = stack_item.get_type() {
+                    match item_type {
+                        // ancestors, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
+                        Elements::Method(_, _, _, _, _, params) => {
+                            
+                            for param in params {
+                                if param.name == cn {
+                                    return Some(Caller { ty: TypeDescriptor { package: Vec::new(), name: vec![param.name.clone()] }, name: Some(cn) })
+                                }
+                            }
+                        },
+                        // ancestors, annotations, modifiers, name, extends, implements
+                        Elements::Class(_, _, _, _, _, _) => {
+                            if let Some(fields) = stack_item.get_member_by_category(ElementCategories::Fields) {
+                                for field in fields {
+                                    if let Some(ty) = field.get_type() {
+                                        match ty {
+                                            // ancestors, modifiers, field type, field name, field value
+                                            Elements::Field(ancestors, _, field_type, field_name, _) => {
+                                                if let Some(name) = field_name {
+                                                    if name == &cn {
+                                                        return Some(Caller { ty: match field_type {
+                                                            Some(ft) => ft.clone(),
+                                                            None => TypeDescriptor { package: Vec::new(), name: Vec::new() }
+                                                        }, name: Some(cn)});
+                                                    }
+                                                }
+                                            },
+                                            _ => return None
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        _ => return None
+                    }
+                }
+            }
+        }
+        // println!("# get_caller end");
         None
     }
 }

@@ -20,7 +20,8 @@ use suzaku_extension_sdk::{
             Elements, 
             ElementCategories, 
             IElement, 
-            ToSignature
+            ToSignature, 
+            TypeDescriptor
         }
     },
 };
@@ -90,7 +91,7 @@ impl JavaAnalyzer {
                     // call outs
                     // TODO: need to implement collecting information of caller
                     &Elements::MethodCall(_, caller, _, _) => None, 
-                    &Elements::CreatorCall(pkg, _, _) => Some(Elements::Package(pkg.clone())),
+                    &Elements::CreatorCall(creator_type, _) => Some(Elements::Package(creator_type.package.clone())),
                     _ => None
                 },
                 None => None
@@ -163,7 +164,7 @@ impl JavaAnalyzer {
                 | Elements::Field(_, _, _, _, _) 
                 | Elements::Method(_, _, _, _, _, _) => 
                     Some((JavaElementCategory::Defines, graph_node)),
-                Elements::CreatorCall(_, _, _) 
+                Elements::CreatorCall(_, _) 
                 | Elements::MethodCall(_, _, _, _) =>
                     Some((JavaElementCategory::CallOuts, graph_node)),
                 _ => None
@@ -173,67 +174,134 @@ impl JavaAnalyzer {
     }
 
     fn collect_depends(&mut self) {
-        let mut depends: Vec<(GraphVertex, GraphVertex, bool)> = Vec::new();
+        let mut need_append_vertexes: Vec<GraphVertex> = Vec::new();
         for element in self.elements.values() {
-            if let Some(element_type) = &element.ty {
-                if let Some((to, need_append)) = self.collect_depends_in_element(element_type) {
-                    depends.push((element.clone(), to.clone(), need_append));
-                }
-            }
+            let from = GraphVertex {
+                package: element.package.clone(),
+                ty: element.ty.clone(),
+                defines: Vec::new(),
+                callouts: Vec::new()
+            };
 
-            for define in &element.defines {
-                if let Some((to, need_append)) = self.collect_depends_in_element(define) {
-                    depends.push((element.clone(), to.clone(), need_append));
-                }
-            }
+            if let Some(depends) = self.collect_depends_in_element(element) {
+                for (to, need_append) in depends {
+                    if from.get_package_name() == to.get_signature() {
+                        continue;
+                    }
 
-            for callouts in &element.callouts {
-                if let Some((to, need_append)) = self.collect_depends_in_element(callouts) {
-                    depends.push((element.clone(), to.clone(), need_append));
+                    self.depends.push(GraphEdge { from: from.clone(), to:  to.clone()});
+                    if need_append {
+                        need_append_vertexes.push(to);
+                    }
                 }
             }
         }
 
-        for (from, to, need_append) in depends {
-            self.apply_depends(from, to, need_append)
+        for v in need_append_vertexes {
+            self.elements.insert(v.get_signature(), v);
         }
     }
 
-    fn collect_depends_in_element(&self, element: &Elements) -> Option<(GraphVertex, bool)> {
-        let create_vertex = |package: Elements, ty: Elements| -> GraphVertex {
-            GraphVertex {
-                package: Some(package),
-                ty: Some(ty),
-                defines: Vec::new(),
-                callouts: Vec::new()
+    fn collect_depends_in_element(&self, gv: &GraphVertex) -> Option<Vec<(GraphVertex, bool)>> {
+        let mut depends: Vec<(GraphVertex, bool)> = Vec::new();
+        let mut collecting = |descriptor: &TypeDescriptor| {
+            if let Some(depend) = self.collect_depends_by_type_descriptor(descriptor) {
+                depends.push(depend);
             }
         };
 
-        let signature = element.to_signature();
-        match self.elements.get(&signature) {
-            Some(vertex) => Some((vertex.clone(), false)),
-            None => {
-                match element {
-                    Elements::Class(td, _, _, _, _, _) => {
-                        // ancestors, annotations, modifiers, name, extends, implements
-                        Some((create_vertex(Elements::Package(td.package.clone()), Elements::Class(td.clone(), Vec::new(), Vec::new(), String::from(""), Vec::new(), Vec::new())), true))
-                    },
-                    Elements::Interface(td, _, _, _, _) => {
-                        // ancestors, annotations, modifiers, name, extends
-                        Some((create_vertex(Elements::Package(td.package.clone()), Elements::Interface(td.clone(), Vec::new(), Vec::new(), String::from(""), Vec::new())), true))
-                    },
-                    _ => None
+        let mut element_collecting = |element_type: &Elements| {
+            match element_type {
+                // ancestors, annotations, modifiers, name, extends, implements
+                Elements::Class(_, _, _, _, extends, implements) => {
+                    for extend in extends {
+                        collecting(extend);
+                    }
+
+                    for implement in implements {
+                        collecting(implement);
+                    }
+                },
+                // ancestors, annotations, modifiers, name, extends
+                Elements::Interface(_, _, _, _, extends) => {
+                    for extend in extends {
+                        collecting(extend);
+                    }
+                },
+                // ancestors, modifiers, ident, params(modifiers, type, name)
+                Elements::Constructor(_, _, _, params) => {
+                    for param in params {
+                        collecting(&param.ty);
+                    }
+                },
+                // ancestors, modifiers, field type, field name, field value
+                Elements::Field(_, _, field_type, _, _) => {
+                    if let Some(ft) = field_type {
+                        collecting(ft);
+                    }
+                },
+                // ancestors, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
+                Elements::Method(_, _, _, ret_type, _, params) => {
+                    collecting(ret_type);
+
+                    for param in params {
+                        collecting(&param.ty);
+                    }
+                },
+                // type, rest
+                Elements::CreatorCall(creator_type, rests) => {
+                    collecting(creator_type);
+
+                    // TODO:
+                    // for rest in rests {
+                    //     collecting(&rest.ty);
+                    // }
                 }
+                // cast, caller, method name, params((annotation, type, name))
+                Elements::MethodCall(_, caller, _, params) => {
+                    collecting(&caller.ty);
+
+                    // TODO:
+                    // for param in params {
+                    //     collecting(&param.ty);
+                    // }
+                },
+                _ => {}
             }
+        };
+
+        if let Some(ty) = &gv.ty {
+            element_collecting(ty);
         }
+
+        // defines
+        for define in &gv.defines {
+            element_collecting(define);
+        }
+
+        // callouts
+        for callout in &gv.callouts {
+            element_collecting(callout);
+        }
+
+        Some(depends)
     }
 
-    fn apply_depends (&mut self, from: GraphVertex, to: GraphVertex, need_append: bool) {
-        if from.get_signature() != to.get_signature() {
-            if need_append {
-                self.elements.insert(to.clone().get_signature(), to.clone());
-            }
-            self.depends.push(GraphEdge { from: from, to: to });
+    fn collect_depends_by_type_descriptor(&self, type_descriptor: &TypeDescriptor) -> Option<(GraphVertex, bool)> {
+        println!("{}", &type_descriptor.to_signature());
+        match self.elements.get(&type_descriptor.to_signature()) {
+            Some(vertex) => Some((GraphVertex {
+                package: vertex.package.clone(),
+                ty: vertex.ty.clone(),
+                defines: Vec::new(),
+                callouts: Vec::new()
+            }, false)),
+            None => Some((GraphVertex {
+                package: Some(Elements::Package(type_descriptor.package.clone())),
+                ty: None,
+                defines: Vec::new(),
+                callouts: Vec::new()
+            }, true))
         }
     }
 }
@@ -267,28 +335,6 @@ impl LanguageAnalysisPolicy for JavaAnalyzer {
                     if let Ok(mut f) = File::create(&output_file_path) {
                         let _ = f.write_all(serde_json::to_string(&self).unwrap().as_bytes());
                         let _ = f.flush();
-                    }
-            
-                    // outputs for debug
-                    let mut sorted_graph_nodes: Vec<_> = self.elements.iter().collect();
-                    sorted_graph_nodes.sort_by_key(|k| k.0);
-            
-                    for (key, node) in sorted_graph_nodes {
-                        println!("# [{}] {}", key, node.ty.as_ref().unwrap().to_string());
-            
-                        let mut sorted_defines = node.defines.clone();
-                        sorted_defines.sort_by(|i, j| i.to_signature().cmp(&j.to_signature()));
-            
-                        for def in sorted_defines {
-                            println!(" * [{}] {}", def.to_signature(), def.to_string())
-                        }
-            
-                        let mut sorted_callouts = node.callouts.clone();
-                        sorted_callouts.sort_by(|i, j| i.to_signature().cmp(&j.to_signature()));
-            
-                        for call in sorted_callouts {
-                            println!(" * [{}] {}", call.to_signature(), call.to_string());
-                        }
                     }
             
                     return Ok(output_file_path);

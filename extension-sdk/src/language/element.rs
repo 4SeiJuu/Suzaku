@@ -103,9 +103,10 @@ impl ToString for ParamDescriptor {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Caller {
-    ty: TypeDescriptor,
-    name: Option<String>
+    pub ty: TypeDescriptor,
+    pub name: Option<String>
 }
 
 impl ToString for Caller {
@@ -148,12 +149,12 @@ pub enum Elements {
     // ancestors, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
     Method(TypeDescriptor, Option<String>, Vec<String>, TypeDescriptor, String, Vec<ParamDescriptor>),
     
-    // package, name, rest
-    CreatorCall(Vec<String>, Vec<String>, Vec<String>),
+    // type, rest
+    CreatorCall(TypeDescriptor, Vec<String>),
     // TODO: how to due with cascade methods call. eg: a.b().c()
     // TODO: caller should be mapped to variable/parameter/field
     // cast, caller, method name, params((annotation, type, name))
-    MethodCall(Option<String>, Option<String>, String, Vec<String>),
+    MethodCall(Option<String>, Caller, String, Vec<String>),
 }
 
 impl AsRef<Elements> for Elements {
@@ -213,8 +214,8 @@ impl ToString for Elements {
                 format!("{} {}.{}({})", ret_ty.to_string(), ancestors.to_string(), name, vec_to_string(&param_strs, ", "))
             },
             /* call outs */
-            Elements::CreatorCall(package, name, rest) => format!("{}.{}({})", vec_to_string(package, "."), vec_to_string(name, "."), vec_to_string(rest, ", ")),
-            Elements::MethodCall(_, caller, name, params) => format!("{}.{}({})", string_option_to_string(caller), name, vec_to_string(params, ", ")),
+            Elements::CreatorCall(creator_type, rest) => format!("{}({})", creator_type.to_string(), vec_to_string(rest, ", ")),
+            Elements::MethodCall(_, caller, name, params) => format!("{}.{}({})", caller.to_string(), name, vec_to_string(params, ", ")),
             _ => String::from("invalid value")
         }
     }
@@ -255,9 +256,9 @@ impl ToSignature for Elements {
                 format!("METHOD_{}_{}_{}", ret_ty.to_string(), ancestors.to_signature(), name),
             /* call outs */
             Elements::MethodCall(_, caller, name, _) => 
-                format!("METHOD_CALL_{}_{}", string_option_to_string(caller), name),
-            Elements::CreatorCall(package, name, _) => 
-                format!("CREATOR_{}_{}", vec_to_string(package, "_"), vec_to_string(name, "_")),
+                format!("METHOD_CALL_{}_{}", caller.to_signature(), name),
+            Elements::CreatorCall(creator_type, _) => 
+                format!("CREATOR_CALL_{}", creator_type.to_signature()),
             _ => String::from("invalid value")
         }
     }

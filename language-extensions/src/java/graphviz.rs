@@ -27,9 +27,9 @@ impl GraphVertex {
         if let Some(element_type) = &self.ty {
             return element_type.to_signature();
         }
-        // if let Some(pkg) = &self.package {
-        //     return pkg.to_signature();
-        // }
+        if let Some(pkg) = &self.package {
+            return pkg.to_signature();
+        }
         String::from("")
     }
 
