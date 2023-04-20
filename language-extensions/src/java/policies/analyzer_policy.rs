@@ -24,7 +24,7 @@ use suzaku_extension_sdk::{
     },
 };
 
-use super::{
+use super::super::data::{
     element::JavaElement,
     graphviz::{
         GraphVertex,

@@ -9,12 +9,12 @@ use suzaku_extension_sdk::{
     reporter::Reporter,
 };
 use suzaku_language_extensions::{
-    java::{
+    java::policies::{
         parser_policy::{
             JavaParserPolicy, 
             JavaParserPolicyInfo
         },
-        data_clean_policy::JavaDataCleanPolicy,
+        extractor_policy::JavaDataCleanPolicy,
         analyzer_policy::JavaAnalyzer,
         mapper_policy::JavaMapperPolicy, 
         graphviz_reporter::GraphvizReporter,

@@ -16,7 +16,7 @@ use suzaku_extension_sdk::{
     GRAPH_FILE_EXTENSION
 };
 
-use super::graphviz::GraphData;
+use super::super::data::graphviz::GraphData;
 
 pub struct GraphvizReporter;
 

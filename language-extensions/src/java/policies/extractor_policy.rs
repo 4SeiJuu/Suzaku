@@ -36,9 +36,8 @@ use suzaku_extension_sdk::{
     utils, 
 };
 
-use super::{
-    element::JavaElement
-};
+use super::super::data::element::JavaElement;
+
 
 pub struct JavaDataCleanListener {
     elements: HashMap<ElementCategories, Vec<JavaElement>>,

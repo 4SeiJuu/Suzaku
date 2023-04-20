@@ -33,7 +33,7 @@ use suzaku_extension_sdk::{
     ELEMENT_FILE_EXTENSION
 };
 
-use crate::java::element::JavaElement;
+use super::super::data::element::JavaElement;
 
 struct JavaDataMappingListener {
     types: HashMap<String, TypeDescriptor>

@@ -20,7 +20,7 @@ use suzaku_extension_sdk::{
 };
 
 use super::{
-    generated::{
+    super::generated::{
         javaparserlistener::JavaParserListener,
         javaparser::*
     },

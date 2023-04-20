@@ -28,11 +28,11 @@ use suzaku_extension_sdk::{
 };
 
 use super::{
-    generated::{
+    super::generated::{
         javalexer::JavaLexer,
         javaparser::*,
     },
-    meta::JavaMetaReorganizePolicy,
+    reorganizer::JavaMetaReorganizePolicy,
     parser_listener::ParserListener,
 };
 
