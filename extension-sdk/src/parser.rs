@@ -17,7 +17,7 @@ pub type LanguageParseResult<T> = std::result::Result<T, LanguageParserPolicyErr
 
 pub trait LanguageParserPolicy {
     fn new() -> Self;
-    fn execute(&self, src: &PathBuf, output: &PathBuf) -> LanguageParseResult<PathBuf>;
+    fn execute(&self, folder: &PathBuf, relative_file_path: &PathBuf) -> LanguageParseResult<String>;
 }
 
 pub trait LanguageParsePolicyInfo {

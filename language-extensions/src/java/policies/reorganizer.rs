@@ -68,6 +68,14 @@ impl LanguageMetaReorganizePolicy for JavaMetaReorganizePolicy {
                         meta.get_members_mut().append(unique_member.get_members_mut());
                     }
                 },
+                MetaType::TypeType => {
+                    if meta.get_members().len() == 1 {
+                        let top = meta.get_members_mut().pop_back().unwrap();
+                        for member in top.get_members() {
+                            meta.get_members_mut().push_back(member.clone());
+                        }
+                    }
+                },
                 MetaType::TypeDeclaration | MetaType::ClassBodyDeclaration | MetaType::MemberDeclaration => {
                     let mut top = meta.get_members_mut().pop_back().unwrap();
                     while let Some(front) = meta.get_members_mut().pop_back() {

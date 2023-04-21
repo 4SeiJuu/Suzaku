@@ -29,33 +29,35 @@ impl Reporter for GraphvizReporter {
         if data_file.is_file() {
             let context_str = fs::read_to_string(data_file).expect("should read context of file");
 
-            if let Ok(data) = match serde_json::from_str::<GraphData>(&context_str) {
-                Ok(contents) => Ok(contents),
+            return match serde_json::from_str::<GraphData>(&context_str) {
+                Ok(data) => {
+                    let mut graph_contents = vec![
+                        String::from("digraph A {"),
+                        String::from("node [shape=plaintext fontname=\"Sans serif\" fontsize=\"8\"];"),
+                    ];
+    
+    
+                    for edge in data.depends.values() {
+                        graph_contents.push(edge.to_graphviz_edge());
+                    }
+    
+                    for vertex in data.elements.values() {
+                        graph_contents.push(vertex.to_graphviz_node());
+                    }
+    
+                    graph_contents.push(String::from("}"));
+    
+                    // save graphviz file
+                    let dot_file_path = output.join(format!("{}.{}", "graphviz", GRAPH_FILE_EXTENSION));
+                    if let Ok(mut f) = File::create(&dot_file_path) {
+                        let _ = f.write_all(graph_contents.join("\n").as_bytes());
+                        let _ = f.flush();
+                    }
+
+                    Ok(dot_file_path)
+                },
                 Err(err) => Err(ReporterError {})
-            } {
-                let mut graph_contents = vec![
-                    String::from("digraph A {"),
-                    String::from("node [shape=plaintext fontname=\"Sans serif\" fontsize=\"8\"];"),
-                ];
-
-
-                for edge in data.depends {
-                    graph_contents.push(edge.to_graphviz_edge());
-                }
-
-                for vertex in data.elements.values() {
-                    graph_contents.push(vertex.to_graphviz_node());
-                }
-
-                graph_contents.push(String::from("};"));
-
-                // save graphviz file
-                let dot_file_path = output.join(format!("{}.{}", "graphviz", GRAPH_FILE_EXTENSION));
-                if let Ok(mut f) = File::create(&dot_file_path) {
-                    let _ = f.write_all(graph_contents.join("\n").as_bytes());
-                    let _ = f.flush();
-                }
-            }
+            };
         }
 
         Err(ReporterError {})

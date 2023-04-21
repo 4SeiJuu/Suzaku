@@ -1,7 +1,5 @@
 use std::{
     fs,
-    fs::File,
-    io::Write,
     path::PathBuf,
 };
 
@@ -24,7 +22,6 @@ use suzaku_extension_sdk::{
     },
     meta_type::MetaType, 
     reorganzier::LanguageMetaReorganizePolicy,
-    METADATA_FILE_EXTENSION,
 };
 
 use super::{
@@ -33,8 +30,15 @@ use super::{
         javaparser::*,
     },
     reorganizer::JavaMetaReorganizePolicy,
-    parser_listener::ParserListener,
+    parser_listener::{
+        ParserListener,
+    }
 };
+
+pub const ATTR_EXPRESSION: &str = "EXPRESSION";
+pub const ATTR_FOLDER: &str = "FOLDER";
+pub const ATTR_FILE: &str = "FILE";
+pub const ATTR_HASH_CODE: &str = "HASH";
 
 pub const SRC_FILE_EXTENSION: &str = "java";
 
@@ -42,7 +46,8 @@ pub const SRC_FILE_EXTENSION: &str = "java";
 pub struct JavaParserPolicy;
 
 impl JavaParserPolicy {
-    fn parse(&self, src: &PathBuf) -> Option<Metadata> {
+    fn parse(&self, folder: &PathBuf, relative_file_path: &PathBuf) -> Option<Metadata> {
+        let src = PathBuf::from_iter(vec![folder, relative_file_path]);
         if src.is_file() && src.exists() {
             let content = fs::read_to_string(src).expect("should read context of file");
             let data = InputStream::new(content.trim());
@@ -51,7 +56,8 @@ impl JavaParserPolicy {
             let token_source = CommonTokenStream::new(lexer);
     
             let mut file_node = Metadata::new(MetaType::File);
-            file_node.set_attr(src.to_str().unwrap());
+            file_node.set_attr(ATTR_FOLDER, folder.to_str().unwrap());
+            file_node.set_attr(ATTR_FILE, relative_file_path.to_str().unwrap());
 
             let reorganizer = JavaMetaReorganizePolicy::new();
             let parser_listener: ParserListener = ParserListener::new(file_node, Some(Box::new(reorganizer)));
@@ -72,18 +78,9 @@ impl<'consumer> LanguageParserPolicy for JavaParserPolicy {
         JavaParserPolicy {}
     }
 
-    fn execute(&self, src: &PathBuf, output_dir: &PathBuf) -> LanguageParseResult<PathBuf> {
-        if let Some(tree) = self.parse(src) {
-            if !output_dir.exists() {
-                _ = fs::create_dir_all(&output_dir);
-            }
-
-            let output_file_path = output_dir.join(format!("{}.{}", src.file_stem().unwrap().to_str().unwrap(), METADATA_FILE_EXTENSION));
-            if let Ok(mut f) = File::create(&output_file_path) {
-                let _ = f.write_all(tree.dump().unwrap().as_bytes());
-                let _ = f.flush();
-            }
-            return Ok(output_file_path);
+    fn execute(&self, folder: &PathBuf, relative_file_path: &PathBuf) -> LanguageParseResult<String> {
+        if let Some(tree) = self.parse(folder, relative_file_path) {
+            return Ok(tree.dump().unwrap());
         }
         Err(LanguageParserPolicyError {})
     }

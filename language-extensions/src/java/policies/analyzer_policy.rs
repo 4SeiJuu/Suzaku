@@ -39,7 +39,7 @@ enum JavaElementCategory {
 
 #[derive(Debug, Serialize)]
 pub struct JavaAnalyzer {
-    depends: Vec<GraphEdge>,
+    depends: HashMap<String, GraphEdge>,
     elements: HashMap<String, GraphVertex>
 }
 
@@ -57,7 +57,7 @@ impl JavaAnalyzer {
         if let Some(jvs) = elements.get(&ElementCategories::Classes) {
             for jv in jvs {
                 if let Some((_, vertex)) = self.collect_elements(jv) {
-                    self.elements.insert(vertex.get_signature(), vertex);
+                    self.elements.insert(vertex.to_signature(), vertex);
                 }
             }
         }
@@ -65,7 +65,7 @@ impl JavaAnalyzer {
         if let Some(jvs) = elements.get(&ElementCategories::Interfaces) {
             for jv in jvs {
                 if let Some((_, vertex)) = self.collect_elements(jv) {
-                    self.elements.insert(vertex.get_signature(), vertex);
+                    self.elements.insert(vertex.to_signature(), vertex);
                 }
             }
         }
@@ -76,53 +76,19 @@ impl JavaAnalyzer {
     }
 
     fn collect_elements(&self, jv: &JavaElement) -> Option<(JavaElementCategory, GraphVertex)> {
-        let get_package = |vt: Option<&Elements>| -> Option<Elements> {
-            match vt {
-                Some(ty) => match &ty {
-                    // definations
-                    &Elements::Class(td, _, _, _, _, _) 
-                    | &Elements::Interface(td, _, _, _, _)
-                    | &Elements::Constructor(td, _, _, _)
-                    | &Elements::Field(td, _, _, _, _)
-                    | &Elements::Method(td, _, _, _, _, _) => 
-                        Some(Elements::Package(td.package.clone())),
-                    // call outs
-                    // TODO: need to implement collecting information of caller
-                    &Elements::MethodCall(_, caller, _, _) => None, 
-                    &Elements::CreatorCall(creator_type, _) => Some(Elements::Package(creator_type.package.clone())),
-                    _ => None
-                },
-                None => None
-            }
-        };
-
-        let get_ty = |vt: Option<&Elements>| -> Option<Elements> {
-            match vt {
-                Some(t) => Some(t.clone()),
-                None => None
-            }
-        };
-
         let applying = |parent: &mut GraphVertex, jv: &JavaElement| {
             if let Some((cate, vertex)) = self.collect_elements(jv) {
-                if let Some(element_type) = vertex.ty {
-                    match cate {
-                        JavaElementCategory::Defines => parent.defines.push(element_type),
-                        JavaElementCategory::CallOuts => parent.callouts.push(element_type),
-                        _ => ()
-                    }
+                match cate {
+                    JavaElementCategory::Defines => parent.defines.push(vertex.ty),
+                    JavaElementCategory::CallOuts => parent.callouts.push(vertex.ty),
+                    _ => ()
                 }
             }
         };
 
         let element_type = jv.get_type();
         if let Some(et) = element_type {
-            let mut graph_node = GraphVertex {
-                package: get_package(element_type),
-                ty: get_ty(element_type),
-                defines: Vec::new(),
-                callouts: Vec::new()
-            };
+            let mut graph_node = GraphVertex::new(et.clone());
 
             // apply child members
             if let Some(constructors) = jv.get_member_by_category(ElementCategories::Constructors) {
@@ -174,29 +140,28 @@ impl JavaAnalyzer {
     fn collect_depends(&mut self) {
         let mut need_append_vertexes: Vec<GraphVertex> = Vec::new();
         for element in self.elements.values() {
-            let from = GraphVertex {
-                package: element.package.clone(),
-                ty: element.ty.clone(),
-                defines: Vec::new(),
-                callouts: Vec::new()
-            };
+            let from = GraphVertex::new(element.ty.clone());
 
             if let Some(depends) = self.collect_depends_in_element(element) {
                 for (to, need_append) in depends {
-                    if from.get_package_name() == to.get_signature() {
+                    if from.get_package_name() == to.to_signature() {
                         continue;
                     }
 
-                    self.depends.push(GraphEdge { from: from.clone(), to:  to.clone()});
-                    if need_append {
-                        need_append_vertexes.push(to);
+                    let edge = GraphEdge { from: from.clone(), to:  to.clone()};
+                    let key = edge.to_signature();
+                    if !self.depends.contains_key(&key) {
+                        self.depends.insert(key, edge);
+                        if need_append {
+                            need_append_vertexes.push(to);
+                        }
                     }
                 }
             }
         }
 
         for v in need_append_vertexes {
-            self.elements.insert(v.get_signature(), v);
+            self.elements.insert(v.to_signature(), v);
         }
     }
 
@@ -268,9 +233,7 @@ impl JavaAnalyzer {
             }
         };
 
-        if let Some(ty) = &gv.ty {
-            element_collecting(ty);
-        }
+        element_collecting(&gv.ty);
 
         // defines
         for define in &gv.defines {
@@ -287,18 +250,8 @@ impl JavaAnalyzer {
 
     fn collect_depends_by_type_descriptor(&self, type_descriptor: &TypeDescriptor) -> Option<(GraphVertex, bool)> {
         match self.elements.get(&type_descriptor.to_signature()) {
-            Some(vertex) => Some((GraphVertex {
-                package: vertex.package.clone(),
-                ty: vertex.ty.clone(),
-                defines: Vec::new(),
-                callouts: Vec::new()
-            }, false)),
-            None => Some((GraphVertex {
-                package: Some(Elements::Package(type_descriptor.package.clone())),
-                ty: None,
-                defines: Vec::new(),
-                callouts: Vec::new()
-            }, true))
+            Some(vertex) => Some((GraphVertex::new(vertex.ty.clone()), false)),
+            None => Some((GraphVertex::new(Elements::UnknownType(type_descriptor.clone())), true))
         }
     }
 }
@@ -307,7 +260,7 @@ impl LanguageAnalysisPolicy for JavaAnalyzer {
     fn new() -> Self {
         JavaAnalyzer {
             elements: HashMap::new(),
-            depends: Vec::new()
+            depends: HashMap::new()
         }
     }
     

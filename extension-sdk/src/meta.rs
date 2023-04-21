@@ -1,5 +1,8 @@
 use std::{
-    collections::LinkedList, 
+    collections::{
+        LinkedList, 
+        HashMap
+    }, 
     str::FromStr
 };
 
@@ -15,8 +18,8 @@ pub trait IMeta<T>: Sized
 where T: ToString + FromStr {
     fn new(meta_type: T) -> Self;
     fn get_node_type(&self) -> T;
-    fn get_attr(&self) -> &Option<String>;
-    fn set_attr(&mut self, value: &str);
+    fn get_attr(&self, key: &str) -> Option<&String>;
+    fn set_attr(&mut self, key: &str, value: &str);
     fn get_members(&self) -> &LinkedList<Self>;
     fn get_members_mut(&mut self) -> &mut LinkedList<Self>;
     fn dump(&self) -> Result<String>;
@@ -25,7 +28,7 @@ where T: ToString + FromStr {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Metadata {
     node_type: MetaType,
-    attr: Option<String>,
+    attrs: HashMap<String, String>,
     members: LinkedList<Self>,
 }
 
@@ -33,7 +36,7 @@ impl IMeta<MetaType> for Metadata {
     fn new(node_type: MetaType) -> Self {
         Metadata {
             node_type: node_type,
-            attr: None,
+            attrs: HashMap::new(),
             members: LinkedList::new(),
         }
     }
@@ -42,12 +45,12 @@ impl IMeta<MetaType> for Metadata {
         self.node_type
     }
 
-    fn get_attr(&self) -> &Option<String> {
-        &self.attr
+    fn get_attr(&self, key: &str) -> Option<&String> {
+        self.attrs.get(&String::from(key)).clone()
     }
 
-    fn set_attr(&mut self, value: &str) {
-        self.attr = Some(String::from(value));
+    fn set_attr(&mut self, key: &str, value: &str) {
+        self.attrs.insert(String::from(key), String::from(value));
     }
 
     fn get_members(&self) -> &LinkedList<Self> {

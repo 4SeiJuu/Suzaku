@@ -138,7 +138,7 @@ impl JavaDataMappingListener {
                 Elements::CreatorCall(creator_type, rests) => None,
                 // cast, caller, method name, params((annotation, type, name))
                 Elements::MethodCall(cast, caller, method_name, params) => {
-                    let mut mapped_caller = match mapping(&caller.ty) {
+                    let mapped_caller = match mapping(&caller.ty) {
                         Some(mapped_caller_type) => Caller {
                             ty: mapped_caller_type,
                             name: caller.name.clone(),

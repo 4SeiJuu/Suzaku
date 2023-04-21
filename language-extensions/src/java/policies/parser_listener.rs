@@ -24,6 +24,7 @@ use super::{
         javaparserlistener::JavaParserListener,
         javaparser::*
     },
+    parser_policy::ATTR_EXPRESSION,
 };
 
 pub struct ParserListener {
@@ -70,7 +71,7 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
             | "++" | "--" | "+" | "-" | "*" | "/" | "&" | "|" | "^" | "%" | "+=" | "-=" | "*="
             | "/=" | "&=" | "|=" | "^=" | "%=" | "<<=" | ">>=" | ">>>=" | "->" | "::" => {
                 let mut op_node = Metadata::new(MetaType::Operator);
-                op_node.set_attr(_node.get_text().as_str());
+                op_node.set_attr(ATTR_EXPRESSION, _node.get_text().as_str());
                 self.stack_mut()
                     .top_mut()
                     .unwrap()
@@ -79,7 +80,7 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
             },
             "," => {
                 let mut sep_node = Metadata::new(MetaType::Separator);
-                sep_node.set_attr(_node.get_text().as_str());
+                sep_node.set_attr(ATTR_EXPRESSION, _node.get_text().as_str());
                 self.stack_mut()
                     .top_mut()
                     .unwrap()
@@ -90,7 +91,7 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
                 MetaType::ImportDeclaration | MetaType::ClassBodyDeclaration => {
                     if let Some(top_node) = self.stack_mut().top_mut() {
                         let mut modifier_node = Metadata::new(MetaType::Modifier);
-                        modifier_node.set_attr(_node.get_text().as_str());
+                        modifier_node.set_attr(ATTR_EXPRESSION, _node.get_text().as_str());
                         top_node.get_members_mut().push_back(modifier_node);
                     }
                 }
@@ -132,7 +133,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_packageDeclaration(&mut self, _ctx: &PackageDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::PackageDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -150,7 +151,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_importDeclaration(&mut self, _ctx: &ImportDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::ImportDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -168,7 +169,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeDeclaration(&mut self, _ctx: &TypeDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::TypeDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -185,7 +186,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_modifier(&mut self, _ctx: &ModifierContext<'input>) {
         self.update_node_attrs(MetaType::Modifier, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -203,7 +204,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_variableModifier(&mut self, _ctx: &VariableModifierContext<'input>) {
         self.update_node_attrs(MetaType::VariableModifier, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -221,7 +222,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classDeclaration(&mut self, _ctx: &ClassDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::ClassDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -239,7 +240,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeParameters(&mut self, _ctx: &TypeParametersContext<'input>) {
         self.update_node_attrs(MetaType::TypeParameters, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -257,7 +258,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeParameter(&mut self, _ctx: &TypeParameterContext<'input>) {
         self.update_node_attrs(MetaType::TypeParameter, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -274,7 +275,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeBound(&mut self, _ctx: &TypeBoundContext<'input>) {
         self.update_node_attrs(MetaType::TypeBound, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -292,7 +293,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_enumDeclaration(&mut self, _ctx: &EnumDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::EnumDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -310,7 +311,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_enumConstants(&mut self, _ctx: &EnumConstantsContext<'input>) {
         self.update_node_attrs(MetaType::EnumConstants, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -327,7 +328,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_enumConstant(&mut self, _ctx: &EnumConstantContext<'input>) {
         self.update_node_attrs(MetaType::EnumConstant, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -345,7 +346,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_enumBodyDeclarations(&mut self, _ctx: &EnumBodyDeclarationsContext<'input>) {
         self.update_node_attrs(MetaType::EnumBodyDeclarations, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -363,7 +364,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_interfaceDeclaration(&mut self, _ctx: &InterfaceDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::InterfaceDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -380,7 +381,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classBody(&mut self, _ctx: &ClassBodyContext<'input>) {
         self.update_node_attrs(MetaType::ClassBody, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -398,7 +399,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_interfaceBody(&mut self, _ctx: &InterfaceBodyContext<'input>) {
         self.update_node_attrs(MetaType::InterfaceBody, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -416,7 +417,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classBodyDeclaration(&mut self, _ctx: &ClassBodyDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::ClassBodyDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -434,7 +435,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_memberDeclaration(&mut self, _ctx: &MemberDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::MemberDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -452,7 +453,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_methodDeclaration(&mut self, _ctx: &MethodDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::MethodDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -469,7 +470,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_methodBody(&mut self, _ctx: &MethodBodyContext<'input>) {
         self.update_node_attrs(MetaType::MethodBody, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -487,7 +488,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeTypeOrVoid(&mut self, _ctx: &TypeTypeOrVoidContext<'input>) {
         self.update_node_attrs(MetaType::TypeTypeOrVoid, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -505,7 +506,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_genericMethodDeclaration(&mut self, _ctx: &GenericMethodDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::GenericMethodDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -529,7 +530,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &GenericConstructorDeclarationContext<'input>,
     ) {
         self.update_node_attrs(MetaType::GenericConstructorDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -547,7 +548,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_constructorDeclaration(&mut self, _ctx: &ConstructorDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::ConstructorDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -571,7 +572,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &CompactConstructorDeclarationContext<'input>,
     ) {
         self.update_node_attrs(MetaType::CompactConstructorDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -589,7 +590,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_fieldDeclaration(&mut self, _ctx: &FieldDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::FieldDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -607,7 +608,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_interfaceBodyDeclaration(&mut self, _ctx: &InterfaceBodyDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::InterfaceBodyDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -631,7 +632,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &InterfaceMemberDeclarationContext<'input>,
     ) {
         self.update_node_attrs(MetaType::InterfaceMemberDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -649,7 +650,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_constDeclaration(&mut self, _ctx: &ConstDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::ConstDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -667,7 +668,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_constantDeclarator(&mut self, _ctx: &ConstantDeclaratorContext<'input>) {
         self.update_node_attrs(MetaType::ConstantDeclarator, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -691,7 +692,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &InterfaceMethodDeclarationContext<'input>,
     ) {
         self.update_node_attrs(MetaType::InterfaceMethodDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -709,7 +710,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_interfaceMethodModifier(&mut self, _ctx: &InterfaceMethodModifierContext<'input>) {
         self.update_node_attrs(MetaType::InterfaceMethodModifier, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -733,7 +734,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &GenericInterfaceMethodDeclarationContext<'input>,
     ) {
         self.update_node_attrs(MetaType::GenericInterfaceMethodDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -757,7 +758,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &InterfaceCommonBodyDeclarationContext<'input>,
     ) {
         self.update_node_attrs(MetaType::InterfaceCommonBodyDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -775,7 +776,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_variableDeclarators(&mut self, _ctx: &VariableDeclaratorsContext<'input>) {
         self.update_node_attrs(MetaType::VariableDeclarators, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -793,7 +794,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_variableDeclarator(&mut self, _ctx: &VariableDeclaratorContext<'input>) {
         self.update_node_attrs(MetaType::VariableDeclarator, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -811,7 +812,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_variableDeclaratorId(&mut self, _ctx: &VariableDeclaratorIdContext<'input>) {
         self.update_node_attrs(MetaType::VariableDeclaratorId, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -829,7 +830,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_variableInitializer(&mut self, _ctx: &VariableInitializerContext<'input>) {
         self.update_node_attrs(MetaType::VariableInitializer, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -847,7 +848,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_arrayInitializer(&mut self, _ctx: &ArrayInitializerContext<'input>) {
         self.update_node_attrs(MetaType::ArrayInitializer, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -865,7 +866,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classOrInterfaceType(&mut self, _ctx: &ClassOrInterfaceTypeContext<'input>) {
         self.update_node_attrs(MetaType::ClassOrInterfaceType, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -882,7 +883,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeArgument(&mut self, _ctx: &TypeArgumentContext<'input>) {
         self.update_node_attrs(MetaType::TypeArgument, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -900,7 +901,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_qualifiedNameList(&mut self, _ctx: &QualifiedNameListContext<'input>) {
         self.update_node_attrs(MetaType::QualifiedNameList, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -918,7 +919,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_formalParameters(&mut self, _ctx: &FormalParametersContext<'input>) {
         self.update_node_attrs(MetaType::FormalParameters, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -936,7 +937,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_receiverParameter(&mut self, _ctx: &ReceiverParameterContext<'input>) {
         self.update_node_attrs(MetaType::ReceiverParameter, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -954,7 +955,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_formalParameterList(&mut self, _ctx: &FormalParameterListContext<'input>) {
         self.update_node_attrs(MetaType::FormalParameterList, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -972,7 +973,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_formalParameter(&mut self, _ctx: &FormalParameterContext<'input>) {
         self.update_node_attrs(MetaType::FormalParameter, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -990,7 +991,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_lastFormalParameter(&mut self, _ctx: &LastFormalParameterContext<'input>) {
         self.update_node_attrs(MetaType::LastFormalParameter, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1008,7 +1009,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_lambdaLVTIList(&mut self, _ctx: &LambdaLVTIListContext<'input>) {
         self.update_node_attrs(MetaType::LambdaLVTIList, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1026,7 +1027,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_lambdaLVTIParameter(&mut self, _ctx: &LambdaLVTIParameterContext<'input>) {
         self.update_node_attrs(MetaType::LambdaLVTIParameter, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1044,7 +1045,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_qualifiedName(&mut self, _ctx: &QualifiedNameContext<'input>) {
         self.update_node_attrs(MetaType::QualifiedName, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1061,7 +1062,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_literal(&mut self, _ctx: &LiteralContext<'input>) {
         self.update_node_attrs(MetaType::Literal, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1079,7 +1080,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_integerLiteral(&mut self, _ctx: &IntegerLiteralContext<'input>) {
         self.update_node_attrs(MetaType::IntegerLiteral, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1096,7 +1097,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_floatLiteral(&mut self, _ctx: &FloatLiteralContext<'input>) {
         self.update_node_attrs(MetaType::FloatLiteral, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1120,7 +1121,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &AltAnnotationQualifiedNameContext<'input>,
     ) {
         self.update_node_attrs(MetaType::AltAnnotationQualifiedName, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1137,7 +1138,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_annotation(&mut self, _ctx: &AnnotationContext<'input>) {
         self.update_node_attrs(MetaType::Annotation, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1155,7 +1156,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_elementValuePairs(&mut self, _ctx: &ElementValuePairsContext<'input>) {
         self.update_node_attrs(MetaType::ElementValuePairs, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1173,7 +1174,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_elementValuePair(&mut self, _ctx: &ElementValuePairContext<'input>) {
         self.update_node_attrs(MetaType::ElementValuePair, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1190,7 +1191,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_elementValue(&mut self, _ctx: &ElementValueContext<'input>) {
         self.update_node_attrs(MetaType::ElementValue, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1214,7 +1215,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &ElementValueArrayInitializerContext<'input>,
     ) {
         self.update_node_attrs(MetaType::ElementValueArrayInitializer, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1232,7 +1233,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_annotationTypeDeclaration(&mut self, _ctx: &AnnotationTypeDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::AnnotationTypeDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1250,7 +1251,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_annotationTypeBody(&mut self, _ctx: &AnnotationTypeBodyContext<'input>) {
         self.update_node_attrs(MetaType::AnnotationTypeBody, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1274,7 +1275,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &AnnotationTypeElementDeclarationContext<'input>,
     ) {
         self.update_node_attrs(MetaType::AnnotationTypeElementDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1292,7 +1293,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_annotationTypeElementRest(&mut self, _ctx: &AnnotationTypeElementRestContext<'input>) {
         self.update_node_attrs(MetaType::AnnotationTypeElementRest, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1316,7 +1317,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &AnnotationMethodOrConstantRestContext<'input>,
     ) {
         self.update_node_attrs(MetaType::AnnotationMethodOrConstantRest, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1334,7 +1335,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_annotationMethodRest(&mut self, _ctx: &AnnotationMethodRestContext<'input>) {
         self.update_node_attrs(MetaType::AnnotationMethodRest, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1352,7 +1353,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_annotationConstantRest(&mut self, _ctx: &AnnotationConstantRestContext<'input>) {
         self.update_node_attrs(MetaType::AnnotationConstantRest, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1369,7 +1370,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_defaultValue(&mut self, _ctx: &DefaultValueContext<'input>) {
         self.update_node_attrs(MetaType::DefaultValue, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1387,7 +1388,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_moduleDeclaration(&mut self, _ctx: &ModuleDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::ModuleDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1404,7 +1405,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_moduleBody(&mut self, _ctx: &ModuleBodyContext<'input>) {
         self.update_node_attrs(MetaType::ModuleBody, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1422,7 +1423,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_moduleDirective(&mut self, _ctx: &ModuleDirectiveContext<'input>) {
         self.update_node_attrs(MetaType::ModuleDirective, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1440,7 +1441,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_requiresModifier(&mut self, _ctx: &RequiresModifierContext<'input>) {
         self.update_node_attrs(MetaType::RequiresModifier, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1458,7 +1459,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_recordDeclaration(&mut self, _ctx: &RecordDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::RecordDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1475,7 +1476,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_recordHeader(&mut self, _ctx: &RecordHeaderContext<'input>) {
         self.update_node_attrs(MetaType::RecordHeader, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1493,7 +1494,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_recordComponentList(&mut self, _ctx: &RecordComponentListContext<'input>) {
         self.update_node_attrs(MetaType::RecordComponentList, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1511,7 +1512,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_recordComponent(&mut self, _ctx: &RecordComponentContext<'input>) {
         self.update_node_attrs(MetaType::RecordComponent, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1528,7 +1529,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_recordBody(&mut self, _ctx: &RecordBodyContext<'input>) {
         self.update_node_attrs(MetaType::RecordBody, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1545,7 +1546,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_block(&mut self, _ctx: &BlockContext<'input>) {
         self.update_node_attrs(MetaType::Block, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1563,7 +1564,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_blockStatement(&mut self, _ctx: &BlockStatementContext<'input>) {
         self.update_node_attrs(MetaType::BlockStatement, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1581,7 +1582,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_localVariableDeclaration(&mut self, _ctx: &LocalVariableDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::LocalVariableDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1598,7 +1599,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_identifier(&mut self, _ctx: &IdentifierContext<'input>) {
         self.update_node_attrs(MetaType::Identifier, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1616,7 +1617,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeIdentifier(&mut self, _ctx: &TypeIdentifierContext<'input>) {
         self.update_node_attrs(MetaType::TypeIdentifier, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1634,7 +1635,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_localTypeDeclaration(&mut self, _ctx: &LocalTypeDeclarationContext<'input>) {
         self.update_node_attrs(MetaType::LocalTypeDeclaration, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1651,7 +1652,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_statement(&mut self, _ctx: &StatementContext<'input>) {
         self.update_node_attrs(MetaType::Statement, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1668,7 +1669,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_catchClause(&mut self, _ctx: &CatchClauseContext<'input>) {
         self.update_node_attrs(MetaType::CatchClause, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1685,7 +1686,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_catchType(&mut self, _ctx: &CatchTypeContext<'input>) {
         self.update_node_attrs(MetaType::CatchType, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1702,7 +1703,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_finallyBlock(&mut self, _ctx: &FinallyBlockContext<'input>) {
         self.update_node_attrs(MetaType::FinallyBlock, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1720,7 +1721,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_resourceSpecification(&mut self, _ctx: &ResourceSpecificationContext<'input>) {
         self.update_node_attrs(MetaType::ResourceSpecification, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1737,7 +1738,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_resources(&mut self, _ctx: &ResourcesContext<'input>) {
         self.update_node_attrs(MetaType::Resources, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1754,7 +1755,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_resource(&mut self, _ctx: &ResourceContext<'input>) {
         self.update_node_attrs(MetaType::Resource, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1772,7 +1773,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_switchBlockStatementGroup(&mut self, _ctx: &SwitchBlockStatementGroupContext<'input>) {
         self.update_node_attrs(MetaType::SwitchBlockStatementGroup, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1789,7 +1790,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_switchLabel(&mut self, _ctx: &SwitchLabelContext<'input>) {
         self.update_node_attrs(MetaType::SwitchLabel, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1806,7 +1807,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_forControl(&mut self, _ctx: &ForControlContext<'input>) {
         self.update_node_attrs(MetaType::ForControl, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1823,7 +1824,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_forInit(&mut self, _ctx: &ForInitContext<'input>) {
         self.update_node_attrs(MetaType::ForInit, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1841,7 +1842,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_enhancedForControl(&mut self, _ctx: &EnhancedForControlContext<'input>) {
         self.update_node_attrs(MetaType::EnhancedForControl, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1859,7 +1860,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_parExpression(&mut self, _ctx: &ParExpressionContext<'input>) {
         self.update_node_attrs(MetaType::ParExpression, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1877,7 +1878,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_expressionList(&mut self, _ctx: &ExpressionListContext<'input>) {
         self.update_node_attrs(MetaType::ExpressionList, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1894,7 +1895,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_methodCall(&mut self, _ctx: &MethodCallContext<'input>) {
         self.update_node_attrs(MetaType::MethodCall, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1911,7 +1912,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_expression(&mut self, _ctx: &ExpressionContext<'input>) {
         self.update_node_attrs(MetaType::Expression, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1928,7 +1929,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_pattern(&mut self, _ctx: &PatternContext<'input>) {
         self.update_node_attrs(MetaType::Pattern, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1946,7 +1947,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_lambdaExpression(&mut self, _ctx: &LambdaExpressionContext<'input>) {
         self.update_node_attrs(MetaType::LambdaExpression, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1964,7 +1965,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_lambdaParameters(&mut self, _ctx: &LambdaParametersContext<'input>) {
         self.update_node_attrs(MetaType::LambdaParameters, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1981,7 +1982,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_lambdaBody(&mut self, _ctx: &LambdaBodyContext<'input>) {
         self.update_node_attrs(MetaType::LambdaBody, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -1998,7 +1999,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_primary(&mut self, _ctx: &PrimaryContext<'input>) {
         self.update_node_attrs(MetaType::Primary, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2016,7 +2017,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_switchExpression(&mut self, _ctx: &SwitchExpressionContext<'input>) {
         self.update_node_attrs(MetaType::SwitchExpression, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2034,7 +2035,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_switchLabeledRule(&mut self, _ctx: &SwitchLabeledRuleContext<'input>) {
         self.update_node_attrs(MetaType::SwitchLabeledRule, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2052,7 +2053,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_guardedPattern(&mut self, _ctx: &GuardedPatternContext<'input>) {
         self.update_node_attrs(MetaType::GuardedPattern, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2070,7 +2071,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_switchRuleOutcome(&mut self, _ctx: &SwitchRuleOutcomeContext<'input>) {
         self.update_node_attrs(MetaType::SwitchRuleOutcome, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2087,7 +2088,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classType(&mut self, _ctx: &ClassTypeContext<'input>) {
         self.update_node_attrs(MetaType::ClassType, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2104,7 +2105,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_creator(&mut self, _ctx: &CreatorContext<'input>) {
         self.update_node_attrs(MetaType::Creator, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2121,7 +2122,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_createdName(&mut self, _ctx: &CreatedNameContext<'input>) {
         self.update_node_attrs(MetaType::CreatedName, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2138,7 +2139,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_innerCreator(&mut self, _ctx: &InnerCreatorContext<'input>) {
         self.update_node_attrs(MetaType::InnerCreator, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2156,7 +2157,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_arrayCreatorRest(&mut self, _ctx: &ArrayCreatorRestContext<'input>) {
         self.update_node_attrs(MetaType::ArrayCreatorRest, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2174,7 +2175,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_classCreatorRest(&mut self, _ctx: &ClassCreatorRestContext<'input>) {
         self.update_node_attrs(MetaType::ClassCreatorRest, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2192,7 +2193,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_explicitGenericInvocation(&mut self, _ctx: &ExplicitGenericInvocationContext<'input>) {
         self.update_node_attrs(MetaType::ExplicitGenericInvocation, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2210,7 +2211,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeArgumentsOrDiamond(&mut self, _ctx: &TypeArgumentsOrDiamondContext<'input>) {
         self.update_node_attrs(MetaType::TypeArgumentsOrDiamond, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2234,7 +2235,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &NonWildcardTypeArgumentsOrDiamondContext<'input>,
     ) {
         self.update_node_attrs(MetaType::NonWildcardTypeArgumentsOrDiamond, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2252,7 +2253,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_nonWildcardTypeArguments(&mut self, _ctx: &NonWildcardTypeArgumentsContext<'input>) {
         self.update_node_attrs(MetaType::NonWildcardTypeArguments, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2269,7 +2270,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeList(&mut self, _ctx: &TypeListContext<'input>) {
         self.update_node_attrs(MetaType::TypeList, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2286,7 +2287,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeType(&mut self, _ctx: &TypeTypeContext<'input>) {
         self.update_node_attrs(MetaType::TypeType, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2304,7 +2305,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_primitiveType(&mut self, _ctx: &PrimitiveTypeContext<'input>) {
         self.update_node_attrs(MetaType::PrimitiveType, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2322,7 +2323,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_typeArguments(&mut self, _ctx: &TypeArgumentsContext<'input>) {
         self.update_node_attrs(MetaType::TypeArguments, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2339,7 +2340,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_superSuffix(&mut self, _ctx: &SuperSuffixContext<'input>) {
         self.update_node_attrs(MetaType::SuperSuffix, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2363,7 +2364,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
         _ctx: &ExplicitGenericInvocationSuffixContext<'input>,
     ) {
         self.update_node_attrs(MetaType::ExplicitGenericInvocationSuffix, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }
@@ -2380,7 +2381,7 @@ impl<'input> JavaParserListener<'input> for ParserListener {
      */
     fn exit_arguments(&mut self, _ctx: &ArgumentsContext<'input>) {
         self.update_node_attrs(MetaType::Arguments, |node| {
-            node.set_attr(_ctx.get_text().as_str());
+            node.set_attr(ATTR_EXPRESSION, _ctx.get_text().as_str());
         });
         self.add_to_parent_member();
     }

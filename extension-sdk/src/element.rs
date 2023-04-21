@@ -78,7 +78,7 @@ impl ToString for TypeDescriptor {
 impl ToSignature for TypeDescriptor {
     fn to_signature(&self) -> String {
         let name_signature = vec_join(&self.name, "_");
-        match vec_join(&self.package, "_") {
+        replace_special_chars(match vec_join(&self.package, "_") {
             Some(p) => match name_signature {
                 Some(n) => format!("{}_{}", p, n),
                 None => p
@@ -87,7 +87,7 @@ impl ToSignature for TypeDescriptor {
                 Some(n) => n,
                 None => String::from("")
             }
-        }
+        }, vec!["[", "]", "<", ">"], "_")
     }
 }
 
@@ -121,10 +121,10 @@ impl ToString for Caller {
 
 impl ToSignature for Caller {
     fn to_signature(&self) -> String {
-        match &self.name {
+        replace_special_chars(match &self.name {
             Some(n) => format!("{}_{}", self.ty.to_signature(), n),
             None => self.ty.to_signature()
-        }
+        }, vec!["[", "]", "<", ">"], "_")
     }
 }
 
@@ -135,6 +135,9 @@ pub enum Elements {
     // package name, type name
     Import(TypeDescriptor),
 
+    // TODO: maybe have another solution
+    // external type which could not be found in source code
+    UnknownType(TypeDescriptor),
     // ancestors, annotations, modifiers, name, extends, implements
     Class(TypeDescriptor, Vec<String>, Vec<String>, String, Vec<TypeDescriptor>, Vec<TypeDescriptor>),
     // ancestors, annotations, modifiers, name, extends
@@ -153,7 +156,6 @@ pub enum Elements {
     // type, rest
     CreatorCall(TypeDescriptor, Vec<String>),
     // TODO: how to due with cascade methods call. eg: a.b().c()
-    // TODO: caller should be mapped to variable/parameter/field
     // cast, caller, method name, params((annotation, type, name))
     MethodCall(Option<String>, Caller, String, Vec<String>),
 }
@@ -191,6 +193,7 @@ impl ToString for Elements {
             Elements::Package(idents) => vec_to_string(&idents, "."),
             Elements::Import(descriptor) => descriptor.to_string(),
             /* types */
+            Elements::UnknownType(desc) => desc.to_string(),
             Elements::Class(ancestors, _, _, name, _, _) => 
                 format!("{}.{}::{}", ancestors.get_package_str(), ancestors.get_name_str(), name),
             Elements::Interface(ancestors, _, _, name, _) => 
@@ -240,26 +243,28 @@ impl ToSignature for Elements {
 
         match self {
             Elements::Package(idents) => 
-                format!("PACKAGE_{}", vec_to_string(&idents, "_")),
+                replace_special_chars(format!("PACKAGE_{}", vec_to_string(&idents, "_")), vec!["[", "]", "<", ">"], "_"),
             Elements::Import(descriptor) => 
-                format!("IMPORT_{}", descriptor.to_signature()),
+                replace_special_chars(format!("IMPORT_{}", descriptor.to_signature()), vec!["[", "]", "<", ">"], "_"),
             /* types */
+            Elements::UnknownType(desc) => 
+                replace_special_chars(format!("TYPE_{}", desc.to_signature()), vec!["[", "]", "<", ">"], "_"),
             Elements::Class(ancestors, _, _, name, _, _) => 
-                format!("CLASS_{}_{}", ancestors.to_signature(), name),
+                replace_special_chars(format!("CLASS_{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             Elements::Interface(ancestors, _, _, name, _) => 
-                format!("INTERFACE_{}_{}", ancestors.to_signature(), name),
+                replace_special_chars(format!("INTERFACE_{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             /* members */
             Elements::Field(ancestors, _, _, name, _) => 
-                format!("FIELD_{}_{}", ancestors.to_signature(), string_option_to_string(name)),
+                replace_special_chars(format!("FIELD_{}_{}", ancestors.to_signature(), string_option_to_string(name)), vec!["[", "]", "<", ">"], "_"),
             Elements::Constructor(ancestors, _, name, _) =>
-                format!("CONSTRUCTOR_{}_{}", ancestors.to_signature(), name),
+                replace_special_chars(format!("CONSTRUCTOR_{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             Elements::Method(ancestors, _, _, ret_ty, name, _) => 
-                format!("METHOD_{}_{}_{}", ret_ty.to_string(), ancestors.to_signature(), name),
+                replace_special_chars(format!("METHOD_{}_{}_{}", ret_ty.to_string(), ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             /* call outs */
             Elements::MethodCall(_, caller, name, _) => 
-                format!("METHOD_CALL_{}_{}", caller.to_signature(), name),
+                replace_special_chars(format!("METHOD_CALL_{}_{}", caller.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             Elements::CreatorCall(creator_type, _) => 
-                format!("CREATOR_CALL_{}", creator_type.to_signature()),
+                replace_special_chars(format!("CREATOR_CALL_{}", creator_type.to_signature()), vec!["[", "]", "<", ">"], "_"),
             _ => String::from("invalid value")
         }
     }
@@ -272,4 +277,12 @@ pub trait IElement {
     fn get_type_mut(&mut self) -> Option<&mut Elements>;
     fn get_member_by_category(&self, category: ElementCategories) -> Option<&Vec<Box<Self>>>;
     fn get_member_by_category_mut(&mut self, category: ElementCategories) -> Option<&mut Vec<Box<Self>>>;
+}
+
+fn replace_special_chars(ori: String, speical_chars: Vec<&str>, to: &str) -> String {
+    let mut result = ori.clone();
+    for ch in speical_chars {
+        result = result.replace(ch, to);
+    }
+    result
 }

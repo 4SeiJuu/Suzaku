@@ -46,7 +46,7 @@
             "args": [
                 "extract",
                 "-m",
-                "./temp/metadata",
+                "./temp/output/metadata/Compile.json",
                 "-o",
                 "./temp"
             ],
@@ -70,7 +70,7 @@
             "args": [
                 "map",
                 "-e",
-                "./temp/elements",
+                "./temp/output/elements",
                 "-o",
                 "./temp"
             ],
@@ -94,7 +94,7 @@
             "args": [
                 "analysis",
                 "-d",
-                "./temp/mapped.ele",
+                "./temp/output/mapped.ele",
                 "-o",
                 "./temp"
             ],
@@ -118,7 +118,7 @@
             "args": [
                 "report",
                 "-d",
-                "./temp/analysed.data",
+                "./temp/output/analysed.data",
                 "-o",
                 "./temp"
             ],

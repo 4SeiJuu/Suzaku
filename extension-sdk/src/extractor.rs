@@ -6,5 +6,5 @@ pub type LanguageDataExtractorResult<T> = std::result::Result<T, LanguageDataExt
 
 pub trait LanguageDataExtractorPolicy {
     fn new() -> Self;
-    fn execute(&mut self, metadata: &PathBuf, output: &PathBuf) -> LanguageDataExtractorResult<PathBuf>;
+    fn execute(&mut self, metadata: &PathBuf) -> LanguageDataExtractorResult<String>;
 }
