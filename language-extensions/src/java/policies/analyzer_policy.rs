@@ -70,6 +70,14 @@ impl JavaAnalyzer {
             }
         }
 
+        if let Some(jvs) = elements.get(&ElementCategories::Enums) {
+            for jv in jvs {
+                if let Some((_, vertex)) = self.collect_elements(jv) {
+                    self.elements.insert(vertex.to_signature(), vertex);
+                }
+            }
+        }
+
         self.collect_depends();
 
         Ok(())
@@ -124,6 +132,7 @@ impl JavaAnalyzer {
             return match et {
                 Elements::Class(_, _, _, _, _, _) 
                 | Elements::Interface(_, _, _, _, _) 
+                | Elements::Enum(_, _, _, _, _)
                 | Elements::Constructor(_, _, _, _) 
                 | Elements::Field(_, _, _, _, _) 
                 | Elements::Method(_, _, _, _, _, _) => 
@@ -191,6 +200,8 @@ impl JavaAnalyzer {
                         collecting(extend);
                     }
                 },
+                // ancestors, annotations, modifiers, name, members
+                Elements::Enum(_, _, _, _, _) => {},
                 // ancestors, modifiers, ident, params(modifiers, type, name)
                 Elements::Constructor(_, _, _, params) => {
                     for param in params {
@@ -251,7 +262,7 @@ impl JavaAnalyzer {
     fn collect_depends_by_type_descriptor(&self, type_descriptor: &TypeDescriptor) -> Option<(GraphVertex, bool)> {
         match self.elements.get(&type_descriptor.to_signature()) {
             Some(vertex) => Some((GraphVertex::new(vertex.ty.clone()), false)),
-            None => Some((GraphVertex::new(Elements::UnknownType(type_descriptor.clone())), true))
+            None => Some((GraphVertex::new(Elements::Type(type_descriptor.clone())), true))
         }
     }
 }

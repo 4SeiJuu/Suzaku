@@ -42,15 +42,9 @@ struct JavaDataMappingListener {
 impl JavaDataMappingListener {
     fn map(&self, element: &mut JavaElement) {
         let mapping = |ty: &TypeDescriptor| -> Option<TypeDescriptor> {
-            for (name, td) in &self.types {
-                if name.as_str() == ty.to_string() || name.ends_with(&ty.to_string()) {
+            for (_, td) in &self.types {
+                if td.is(ty) {
                     return Some(td.clone());
-                }
-
-                if let Some(first_name) = ty.name.get(0) {
-                    if name.ends_with(first_name) {
-                        return Some(td.clone())
-                    }
                 }
             }
             None
@@ -90,6 +84,8 @@ impl JavaDataMappingListener {
 
                     Some(Elements::Interface(ancestors.clone(), annotations.clone(), modifiers.clone(), name.to_string(), mapped_extends))
                 },
+                // ancestors, annotations, modifiers, name, members
+                Elements::Enum(_ancestors, _annotations, _modifiers, _name, _members) => None,
                 // ancestors, modifiers, field type, field name, field value
                 Elements::Field(ancestors, modifiers, field_type, field_name, field_value) => {
                     let mut mapped_field_type = None;
@@ -134,7 +130,7 @@ impl JavaDataMappingListener {
                     Some(Elements::Constructor(ancestors.clone(), modifiers.clone(), ident.clone(), mapped_params))
                 },
                 // package, name, rest 
-                // TODO:
+                // TODO: need produce rests
                 Elements::CreatorCall(creator_type, rests) => None,
                 // cast, caller, method name, params((annotation, type, name))
                 Elements::MethodCall(cast, caller, method_name, params) => {
@@ -185,7 +181,7 @@ impl JavaMapperPolicy {
         // collecting all types
         for (cate, jvs) in data {
             match cate {
-                ElementCategories::Classes | ElementCategories::Interfaces => {
+                ElementCategories::Classes | ElementCategories::Interfaces | ElementCategories::Enums => {
                     for jv in jvs {
                         if let Some(vt) = jv.get_type() {
                             if listener.types.contains_key(&vt.to_string()) {
@@ -198,6 +194,9 @@ impl JavaMapperPolicy {
                                     Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
                                 // ancestors, annotations, modifiers, name, extends
                                 Elements::Interface(ancestors, _, _, name, _) =>
+                                    Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
+                                // ancestors, annotations, modifiers, name, members
+                                Elements::Enum(ancestors, _, _, name, members) => 
                                     Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
                                 _ => None
 

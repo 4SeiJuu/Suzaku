@@ -18,6 +18,8 @@ pub trait IMeta<T>: Sized
 where T: ToString + FromStr {
     fn new(meta_type: T) -> Self;
     fn get_node_type(&self) -> T;
+    fn get_attrs(&self) -> &HashMap<String, String>;
+    fn get_attrs_mut(&mut self) -> &mut HashMap<String, String>;
     fn get_attr(&self, key: &str) -> Option<&String>;
     fn set_attr(&mut self, key: &str, value: &str);
     fn get_members(&self) -> &LinkedList<Self>;
@@ -43,6 +45,14 @@ impl IMeta<MetaType> for Metadata {
 
     fn get_node_type(&self) -> MetaType {
         self.node_type
+    }
+
+    fn get_attrs(&self) -> &HashMap<String, String> {
+        &self.attrs
+    }
+
+    fn get_attrs_mut(&mut self) -> &mut HashMap<String, String> {
+        &mut self.attrs
     }
 
     fn get_attr(&self, key: &str) -> Option<&String> {

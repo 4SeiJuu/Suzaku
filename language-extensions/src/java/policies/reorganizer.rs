@@ -69,12 +69,20 @@ impl LanguageMetaReorganizePolicy for JavaMetaReorganizePolicy {
                     }
                 },
                 MetaType::TypeType => {
-                    if meta.get_members().len() == 1 {
-                        let top = meta.get_members_mut().pop_back().unwrap();
-                        for member in top.get_members() {
-                            meta.get_members_mut().push_back(member.clone());
-                        }
+                    for member in meta.get_members_mut() {
+                        children.push(match member.get_node_type() {
+                            MetaType::ClassOrInterfaceType | MetaType::PrimitiveType => {
+                                let mut typeType = Metadata::new(MetaType::TypeType);
+                                for (key, value) in member.get_attrs_mut() {
+                                    typeType.set_attr(&key.to_string(), &value.to_string());
+                                }
+                                typeType.get_members_mut().append(member.get_members_mut());
+                                typeType
+                            },
+                            _ => member.clone()
+                        });
                     }
+                    return children;
                 },
                 MetaType::TypeDeclaration | MetaType::ClassBodyDeclaration | MetaType::MemberDeclaration => {
                     let mut top = meta.get_members_mut().pop_back().unwrap();

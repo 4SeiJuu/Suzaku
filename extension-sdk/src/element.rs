@@ -1,8 +1,10 @@
+use regex::Regex;
 use serde::{
     Serialize, 
     Deserialize
 };
 use strum::EnumIter;
+use inflections::case::is_pascal_case;
 
 use crate::utils::vec_join;
 
@@ -12,6 +14,7 @@ pub enum ElementCategories {
     Imports,
     Classes,
     Interfaces,
+    Enums,
     Annotations,
     Fields,
     Methods,
@@ -57,6 +60,25 @@ impl TypeDescriptor {
             None => None
         }
     }
+
+    pub fn is(&self, other: &Self) -> bool {
+        let re = Regex::new(r"[\[|<].*[\]|>]").unwrap();
+
+        let name_str = re.replace_all(self.to_string().as_str(), "").to_string();
+        let other_str = re.replace_all(other.to_string().as_str(), "").to_string();
+
+        if name_str == other_str || name_str.ends_with(&other_str) {
+            return true;
+        } 
+        
+        if let Some(first_name) = other.name.get(0) {
+            if name_str.ends_with(first_name) {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 impl ToString for TypeDescriptor {
@@ -87,7 +109,24 @@ impl ToSignature for TypeDescriptor {
                 Some(n) => n,
                 None => String::from("")
             }
-        }, vec!["[", "]", "<", ">"], "_")
+        }, vec!["[", "]", "<", ">", "?"], "")
+    }
+}
+
+impl From<&Vec<String>> for TypeDescriptor {
+    fn from(value: &Vec<String>) -> Self {
+        let mut package: Vec<String> = Vec::new();
+        let mut name: Vec<String> = Vec::new();
+
+        for item in value {
+            if is_pascal_case(item.as_str()) {
+                name.push(item.clone());
+            } else {
+                package.push(item.clone());
+            }
+        }
+
+        TypeDescriptor { package: package, name: name }
     }
 }
 
@@ -132,17 +171,17 @@ impl ToSignature for Caller {
 pub enum Elements {
     // package name
     Package(Vec<String>),
-    // package name, type name
+    // TypeDescriptor {package name, type name}
     Import(TypeDescriptor),
 
-    // TODO: maybe have another solution
-    // external type which could not be found in source code
-    UnknownType(TypeDescriptor),
+    // external type which could not be found the defination in source code
+    Type(TypeDescriptor),
     // ancestors, annotations, modifiers, name, extends, implements
     Class(TypeDescriptor, Vec<String>, Vec<String>, String, Vec<TypeDescriptor>, Vec<TypeDescriptor>),
     // ancestors, annotations, modifiers, name, extends
     Interface(TypeDescriptor, Vec<String>, Vec<String>, String, Vec<TypeDescriptor>),
-    Enum,
+    // ancestors, annotations, modifiers, name, members
+    Enum(TypeDescriptor, Vec<String>, Vec<String>, String, Vec<String>),
     Annotation,
     Record,
 
@@ -193,11 +232,13 @@ impl ToString for Elements {
             Elements::Package(idents) => vec_to_string(&idents, "."),
             Elements::Import(descriptor) => descriptor.to_string(),
             /* types */
-            Elements::UnknownType(desc) => desc.to_string(),
+            Elements::Type(desc) => desc.to_string(),
             Elements::Class(ancestors, _, _, name, _, _) => 
-                format!("{}.{}::{}", ancestors.get_package_str(), ancestors.get_name_str(), name),
+                format!("{}.{}", ancestors.to_string(), name),
             Elements::Interface(ancestors, _, _, name, _) => 
-                format!("{}.{}::{}", ancestors.get_package_str(), ancestors.get_name_str(), name),
+                format!("{}.{}", ancestors.to_string(), name),
+            Elements::Enum(ancestors, _, _, name, _) => 
+                format!("{}.{}", ancestors.to_string(), name),
             /* members */
             Elements::Field(ancestors, _, ty, name, value) => match value {
                 Some(v) => format!("{} {}::{} = {}", type_descriptor_option_to_string(ty), ancestors.to_string(), string_option_to_string(name), v),
@@ -243,28 +284,30 @@ impl ToSignature for Elements {
 
         match self {
             Elements::Package(idents) => 
-                replace_special_chars(format!("PACKAGE_{}", vec_to_string(&idents, "_")), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}", vec_to_string(&idents, "_")), vec!["[", "]", "<", ">"], "_"),
             Elements::Import(descriptor) => 
-                replace_special_chars(format!("IMPORT_{}", descriptor.to_signature()), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}", descriptor.to_signature()), vec!["[", "]", "<", ">"], "_"),
             /* types */
-            Elements::UnknownType(desc) => 
-                replace_special_chars(format!("TYPE_{}", desc.to_signature()), vec!["[", "]", "<", ">"], "_"),
+            Elements::Type(desc) => 
+                replace_special_chars(format!("{}", desc.to_signature()), vec!["[", "]", "<", ">"], "_"),
             Elements::Class(ancestors, _, _, name, _, _) => 
-                replace_special_chars(format!("CLASS_{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             Elements::Interface(ancestors, _, _, name, _) => 
-                replace_special_chars(format!("INTERFACE_{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
+            Elements::Enum(ancestors, _, _, name, _) => 
+                replace_special_chars(format!("{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             /* members */
             Elements::Field(ancestors, _, _, name, _) => 
-                replace_special_chars(format!("FIELD_{}_{}", ancestors.to_signature(), string_option_to_string(name)), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}_{}", ancestors.to_signature(), string_option_to_string(name)), vec!["[", "]", "<", ">"], "_"),
             Elements::Constructor(ancestors, _, name, _) =>
-                replace_special_chars(format!("CONSTRUCTOR_{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             Elements::Method(ancestors, _, _, ret_ty, name, _) => 
-                replace_special_chars(format!("METHOD_{}_{}_{}", ret_ty.to_string(), ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}_{}_{}", ret_ty.to_string(), ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             /* call outs */
             Elements::MethodCall(_, caller, name, _) => 
-                replace_special_chars(format!("METHOD_CALL_{}_{}", caller.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}_{}", caller.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             Elements::CreatorCall(creator_type, _) => 
-                replace_special_chars(format!("CREATOR_CALL_{}", creator_type.to_signature()), vec!["[", "]", "<", ">"], "_"),
+                replace_special_chars(format!("{}", creator_type.to_signature()), vec!["[", "]", "<", ">"], "_"),
             _ => String::from("invalid value")
         }
     }

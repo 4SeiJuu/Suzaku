@@ -1,10 +1,9 @@
 use std::{
     path::PathBuf, 
-    collections::HashMap, 
-    fs, 
+    collections::HashMap,
+    fs,
 };
 
-use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -37,12 +36,12 @@ use super::{
 };
 
 
-pub struct JavaDataCleanListener {
+pub struct JavaDataExtractorListener {
     elements: HashMap<ElementCategories, Vec<JavaElement>>,
     stack: Stack<JavaElement>
 }
 
-impl JavaDataCleanListener {
+impl JavaDataExtractorListener {
     pub fn results(&self) -> HashMap<ElementCategories, Vec<JavaElement>> {
         self.elements.clone()
     }
@@ -53,7 +52,7 @@ impl JavaDataCleanListener {
             MetaType::ImportDeclaration => self.analysis_import_declaration(node),
             MetaType::ClassDeclaration => self.analysis_class_declaration(node),
             MetaType::InterfaceDeclaration => self.analysis_interface_declaration(node),
-            MetaType::EnumDeclaration => {},
+            MetaType::EnumDeclaration => self.analysis_enum_declaration(node),
             MetaType::FieldDeclaration => self.analysis_field_declaration(node),
             MetaType::MethodDeclaration | MetaType::InterfaceMethodDeclaration => self.analysis_method_declaration(node),
             MetaType::AnnotationTypeDeclaration => {},
@@ -105,7 +104,13 @@ impl JavaDataCleanListener {
                     None
                 } 
             },
-            MetaType::EnumDeclaration => None,
+            MetaType::EnumDeclaration => {
+                if let Elements::Enum(_, _, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::Enums, self.stack.pop()))
+                } else {
+                    None
+                }
+            },
             MetaType::FieldDeclaration => {
                 if let Elements::Field(_, _, _, _, _) = ty.unwrap() {
                     Some((ElementCategories::Fields, self.stack.pop()))
@@ -144,7 +149,7 @@ impl JavaDataCleanListener {
             _ => None
         } {
             if let Some(element) = element {
-                if category == ElementCategories::Classes || category == ElementCategories::Interfaces {
+                if category == ElementCategories::Classes || category == ElementCategories::Interfaces || category == ElementCategories::Enums {
                     self.add_element(category, element)
                 } else {
                     self.add_element_to_parent(category, element.clone());
@@ -182,11 +187,7 @@ impl JavaDataCleanListener {
                     for ident in member.get_members() {
                         idents.push(ident.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string());
                     }
-                    let type_name = idents.swap_remove(idents.len() - 1);
-                    let ty = Elements::Import(TypeDescriptor {
-                        package: idents, 
-                        name: vec![type_name]
-                    });
+                    let ty = Elements::Import(TypeDescriptor::from(&idents));
                     self.push_to_stack(JavaElement::new(ty));
                 },
                 _ => ()
@@ -203,28 +204,6 @@ impl JavaDataCleanListener {
         let mut extends: Vec<TypeDescriptor> = Vec::new();
         let mut implements: Vec<TypeDescriptor> = Vec::new();
 
-        let get_typetype_name = |type_type: &Metadata| -> Vec<String> {
-            let mut extend_name: Vec<String> = Vec::new();
-            if type_type.get_members().is_empty() {
-                if let Some(ident_str) = type_type.get_attr(ATTR_EXPRESSION) {
-                    extend_name.push(ident_str.clone());
-                }
-            } else {
-                for ident in type_type.get_members() {
-                    match ident.get_node_type() {
-                        // TODO: TypeArguments need be produced
-                        MetaType::Identifier | MetaType::TypeIdentifier | MetaType::TypeArguments => {
-                            if let Some(ident_str) = ident.get_attr(ATTR_EXPRESSION) {
-                                extend_name.push(ident_str.clone());
-                            }
-                        },
-                        _ => {}
-                    }
-                }
-            }
-            extend_name
-        };
-
         for member in node.get_members() {
             match member.get_node_type() {
                 MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
@@ -237,18 +216,13 @@ impl JavaDataCleanListener {
                     ident = Some(attr.to_string());
                 },
                 MetaType::TypeType => {
-                    let mut extend_name: Vec<String> = get_typetype_name(member);
-                    if let Some(extend) = match self.get_dependency_type_info_from_imports(vec_join(&extend_name, ".").unwrap().as_str()) {
-                        Some(td) => Some(TypeDescriptor {
-                            package: td.package.clone(), 
-                            name: extend_name
-                        }),
-                        None => Some(TypeDescriptor {
-                            package: Vec::new(), 
-                            name: extend_name
-                        })
-                    } {
-                        extends.push(extend);
+                    let extend_name: Vec<String> = self.get_typetype_name(member);
+                    if !extend_name.is_empty() {
+                        let extend_td = TypeDescriptor::from(&extend_name);
+                        match self.get_dependency_type_info_from_imports(&extend_td) {
+                            Some(edtend_full_td) => extends.push(edtend_full_td.clone()),
+                            None => extends.push(extend_td)
+                        }
                     }
                 },
                 MetaType::TypeList => {
@@ -260,19 +234,12 @@ impl JavaDataCleanListener {
                         for type_type in member.get_members() {
                             match type_type.get_node_type() {
                                 MetaType::TypeType => {
-                                    let implement_name = get_typetype_name(type_type);
+                                    let implement_name = self.get_typetype_name(type_type);
                                     if !implement_name.is_empty() {
-                                        if let Some(extend) = match self.get_dependency_type_info_from_imports(vec_join(&implement_name, ".").unwrap().as_str()) {
-                                            Some(td) => Some(TypeDescriptor {
-                                                package: td.package.clone(), 
-                                                name: implement_name
-                                            }),
-                                            None => Some(TypeDescriptor {
-                                                package: Vec::new(), 
-                                                name: implement_name
-                                            })
-                                        } {
-                                            implements.push(extend);
+                                        let implement_td = TypeDescriptor::from(&implement_name);
+                                        match self.get_dependency_type_info_from_imports(&implement_td) {
+                                            Some(implement_full_td) => implements.push(implement_full_td.clone()),
+                                            None => implements.push(implement_td)
                                         }
                                     }
                                 },
@@ -285,16 +252,18 @@ impl JavaDataCleanListener {
             }
         }
 
-        let package_name: Vec<String> = match self.get_package() {
+        let mut package_name: Vec<String> = match self.get_package() {
             Some(package_name) => package_name.clone(),
             None => Vec::new()
         };
 
         let ty = match self.get_type() {
-            Some(type_name) => Elements::Class(
-                    TypeDescriptor { package: package_name, name: type_name }, annotations, modifiers, ident.unwrap(), extends, implements.clone()),
+            Some(mut type_name) => {
+                package_name.append(&mut type_name);
+                Elements::Class(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), extends, implements.clone())
+            },
             None => Elements::Class(
-                TypeDescriptor { package: package_name, name: Vec::new() }, annotations, modifiers, ident.unwrap(), extends, implements.clone())
+                TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), extends, implements.clone())
         };
 
         self.push_to_stack(JavaElement::new(ty));
@@ -319,32 +288,80 @@ impl JavaDataCleanListener {
                 MetaType::Identifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     ident = Some(attr.to_string());
                 },
-                MetaType::TypeType => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
-                    extends.push(match self.get_dependency_type_info_from_imports(attr.as_str()) {
-                        Some(td) => TypeDescriptor {
-                            package: td.package.clone(), 
-                            name: vec![attr.to_string()]
-                        },
-                        None => TypeDescriptor {
-                            package: Vec::new(), 
-                            name: vec![attr.to_string()]
+                MetaType::TypeType => {
+                    let extend_name = self.get_typetype_name(member);
+                    if !extend_name.is_empty() {
+                        let extend_td = TypeDescriptor::from(&extend_name);
+                        match self.get_dependency_type_info_from_imports(&extend_td) {
+                            Some(extend_full_td) => extends.push(extend_full_td.clone()),
+                            None => extends.push(extend_td)
                         }
-                    });
+                    }
+                    extends.push(TypeDescriptor::from(&extend_name));
                 },
                 _ => ()
             }
         }
 
-        let package_name: Vec<String> = match self.get_package() {
+        let mut package_name: Vec<String> = match self.get_package() {
             Some(package_name) => package_name.clone(),
             None => Vec::new()
         };
 
         let ty = match self.get_type() {
-            Some(type_name) => Elements::Interface(
-                    TypeDescriptor { package: package_name, name: type_name }, annotations, modifiers, ident.unwrap(), extends),
+            Some(mut type_name) => {
+                package_name.append(&mut type_name);
+                Elements::Interface(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), extends)
+            },
             None => Elements::Interface(
-                TypeDescriptor { package: package_name, name: Vec::new() }, annotations, modifiers, ident.unwrap(), extends)
+                TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), extends)
+        };
+
+        self.push_to_stack(JavaElement::new(ty));
+    }
+
+    fn analysis_enum_declaration(&mut self, node: &Metadata) {
+        assert_eq!(node.get_node_type(), MetaType::EnumDeclaration);
+
+        let mut annotations: Vec<String> = Vec::new();
+        let mut modifiers: Vec<String> = Vec::new();
+        let mut ident: Option<String> = None;
+        let mut members: Vec<String> = Vec::new();
+
+        for member in node.get_members() {
+            match member.get_node_type() {
+                MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
+                    annotations.push(attr.to_string());
+                },
+                MetaType::Modifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
+                    modifiers.push(attr.to_string());
+                },
+                MetaType::Identifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
+                    ident = Some(attr.to_string());
+                },
+                MetaType::EnumConstants => {
+                    for constant in member.get_members() {
+                        match constant.get_node_type() {
+                            MetaType::EnumConstant => members.push(constant.get_attr(ATTR_EXPRESSION).unwrap().to_string()),
+                            _ => ()
+                        }
+                    } 
+                }
+                _ => ()
+            }
+        }
+
+        let mut package_name: Vec<String> = match self.get_package() {
+            Some(package_name) => package_name.clone(),
+            None => Vec::new()
+        };
+
+        let ty = match self.get_type() {
+            Some(mut type_name) => {
+                package_name.append(&mut type_name);
+                Elements::Enum(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), members)
+            },
+            None => Elements::Enum(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), members)
         };
 
         self.push_to_stack(JavaElement::new(ty));
@@ -363,10 +380,14 @@ impl JavaDataCleanListener {
                 MetaType::Modifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     modifiers.push(attr.to_string());
                 },
-                MetaType::TypeType => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
-                    match self.get_dependency_type_info_from_imports(attr.as_str()) {
-                        Some(td) => ty = Some(TypeDescriptor {package: td.package.clone(), name: vec![attr.to_string()]}),
-                        None => ty = Some(TypeDescriptor {package: Vec::new(), name: vec![attr.to_string()]})
+                MetaType::TypeType => {
+                    let type_name = self.get_typetype_name(member);
+                    if !type_name.is_empty() {
+                        let type_td = TypeDescriptor::from(&type_name);
+                        ty = Some(match self.get_dependency_type_info_from_imports(&type_td) {
+                            Some(type_full_td) => type_full_td.clone(),
+                            None => type_td
+                        });
                     }
                 },
                 MetaType::VariableDeclarator => {
@@ -389,14 +410,17 @@ impl JavaDataCleanListener {
             }
         }
 
-        let package_name = match self.get_package() {
+        let mut package_name = match self.get_package() {
             Some(pn) => pn.clone(),
             None => Vec::new()
         };
 
         let ty = match self.get_type() {
-            Some(type_name) => Elements::Field(TypeDescriptor { package: package_name, name: type_name }, modifiers.clone(), ty, variable_id, variable_init),
-            None => Elements::Field(TypeDescriptor { package: package_name, name: Vec::new() }, modifiers.clone(), ty, variable_id, variable_init)
+            Some(mut type_name) => {
+                package_name.append(&mut type_name);
+                Elements::Field(TypeDescriptor::from(&package_name), modifiers.clone(), ty, variable_id, variable_init)
+            },
+            None => Elements::Field(TypeDescriptor::from(&package_name), modifiers.clone(), ty, variable_id, variable_init)
         };
 
         self.push_to_stack(JavaElement::new(ty));
@@ -419,13 +443,33 @@ impl JavaDataCleanListener {
                 MetaType::Modifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     modifiers.push(attr.to_string());
                 },
-                MetaType::TypeTypeOrVoid => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
-                    let package = match self.get_dependency_type_info_from_imports(attr.as_str()) {
-                        Some(td) => td.package.clone(),
-                        None => Vec::new()
+                MetaType::TypeTypeOrVoid => {
+                    let type_name = match member.get_members().is_empty() {
+                        true => vec![member.get_attr(ATTR_EXPRESSION).unwrap().to_string()],
+                        false => {
+                            let mut type_type_member: Option<&Metadata> = None;
+                            for sub_member in member.get_members() {
+                                if sub_member.get_node_type() == MetaType::TypeType {
+                                    type_type_member = Some(sub_member);
+                                    break;
+                                }
+                            }
+
+                            match type_type_member {
+                                Some(ttm) => self.get_typetype_name(ttm),
+                                None => Vec::new()
+                            }
+                        }
                     };
-                    ret_type = Some(TypeDescriptor { package: package, name: vec![attr.to_string()] });
-                },
+
+                    if !type_name.is_empty() {
+                        let type_td = TypeDescriptor::from(&type_name);
+                        ret_type = Some(match self.get_dependency_type_info_from_imports(&type_td) {
+                            Some(type_full_td) => type_full_td.clone(),
+                            None => type_td
+                        });
+                    }
+                }
                 MetaType::Identifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     name = Some(attr.clone());
                 },
@@ -439,22 +483,14 @@ impl JavaDataCleanListener {
                                 match item.get_node_type() {
                                     MetaType::VariableModifier => modifiers.push(item.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                                     MetaType::TypeType => {
-                                        let mut idents: Vec<String> = Vec::new();
-                                        for member in item.get_members() {
-                                            match member.get_node_type() {
-                                                MetaType::Identifier | MetaType::TypeIdentifier | MetaType::ClassOrInterfaceType | MetaType::PrimitiveType => 
-                                                    idents.push(member.get_attr(ATTR_EXPRESSION).unwrap().clone()),
-                                                _ => ()
-                                            }
-                                        }
-
-                                        let mut package = Vec::new();
+                                        let idents = self.get_typetype_name(item);
                                         if !idents.is_empty() {
-                                            if let Some(td) = self.get_dependency_type_info_from_imports(&idents.first().unwrap().as_str()) {
-                                                package = td.package.clone();
-                                            };
+                                            let idents_td = TypeDescriptor::from(&idents);
+                                            ty = Some(match self.get_dependency_type_info_from_imports(&idents_td) {
+                                                Some(idents_full_td) => idents_full_td.clone(),
+                                                None => idents_td
+                                            });
                                         }
-                                        ty = Some(TypeDescriptor { package: package, name: idents })
                                     },
                                     MetaType::VariableDeclaratorId => ident = Some(item.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                                     _ => ()
@@ -473,14 +509,20 @@ impl JavaDataCleanListener {
             }
         }
 
-        let package_name = match self.get_package() {
+        let mut package_name = match self.get_package() {
             Some(pn) => pn.clone(),
             None => Vec::new()
         };
 
         let ty = match self.get_type() {
-            Some(type_name) => Elements::Method(TypeDescriptor { package: package_name, name: type_name }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
-            None => Elements::Method(TypeDescriptor { package: package_name, name: Vec::new() }, annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
+            Some(mut type_name) => {
+                package_name.append(&mut type_name);
+                if ret_type.is_none() {
+                    println!("{}", serde_json::to_string(node).unwrap());
+                }
+                Elements::Method(TypeDescriptor::from(&package_name), annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params)
+            },
+            None => Elements::Method(TypeDescriptor::from(&package_name), annotation, modifiers, ret_type.unwrap(), name.unwrap().to_string(), params),
         };
 
         self.push_to_stack(JavaElement::new(ty));
@@ -520,17 +562,19 @@ impl JavaDataCleanListener {
         let ident = idents.swap_remove(idents.len() - 1);
         let mut caller: Option<Caller> = None;
         if idents.is_empty() {
+            let mut package_name = match self.get_package() {
+                Some(pkg) => pkg.clone(),
+                None => Vec::new()
+            };
+
+            let mut type_name = match self.get_type() {
+                Some(name) => name,
+                None => Vec::new()
+            };
+
+            package_name.append(&mut type_name);
             caller = Some(Caller {
-                ty: TypeDescriptor {
-                    package: match self.get_package() {
-                        Some(pkg) => pkg.clone(),
-                        None => Vec::new()
-                    },
-                    name: match self.get_type() {
-                        Some(name) => name,
-                        None => Vec::new()
-                    }
-                },
+                ty: TypeDescriptor::from(&package_name),
                 name: Some(String::from("self"))
             })
         } else {
@@ -575,12 +619,12 @@ impl JavaDataCleanListener {
             }
         }
 
-        let package_name = match self.get_dependency_type_info_from_imports(creator_name.get(0).unwrap()) {
-            Some(td) => td.package.clone(),
-            None => Vec::new()
-        };
+        let mut creator_td = TypeDescriptor::from(&creator_name);
+        if let Some(createor_full_td) = self.get_dependency_type_info_from_imports(&creator_td) {
+            creator_td = createor_full_td.clone();
+        }
 
-        let ty = Elements::CreatorCall(TypeDescriptor { package: package_name, name: creator_name }, rests);
+        let ty = Elements::CreatorCall(creator_td, rests);
         self.push_to_stack(JavaElement::new(ty));
     }
 
@@ -607,15 +651,12 @@ impl JavaDataCleanListener {
                                     match part.get_node_type() {
                                         MetaType::VariableModifier => param_modifiers.push(part.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                                         MetaType::TypeType => {
-                                            let type_name = part.get_attr(ATTR_EXPRESSION).as_ref().unwrap().as_str();
-                                            let package_name = match self.get_dependency_type_info_from_imports(type_name) {
-                                                Some(td) => td.package.clone(),
-                                                None => Vec::new()
-                                            };
-                                            ty = Some(TypeDescriptor {
-                                                package: package_name,
-                                                name: vec![type_name.to_string()]
-                                            });
+                                            let type_name = self.get_typetype_name(part);
+                                            let mut type_td = TypeDescriptor::from(&type_name);
+                                            if let Some(type_full_td) = self.get_dependency_type_info_from_imports(&type_td) {
+                                                type_td = type_full_td.clone();
+                                            }
+                                            ty = Some(type_td);
                                         },
                                         MetaType::VariableDeclaratorId => name = Some(part.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                                         _ => ()
@@ -635,14 +676,17 @@ impl JavaDataCleanListener {
             }
         }
 
-        let package_name = match self.get_package() {
+        let mut package_name = match self.get_package() {
             Some(pn) => pn.clone(),
             None => Vec::new()
         };
 
         let ty = match self.get_type() {
-            Some(type_name) => Elements::Constructor(TypeDescriptor { package: package_name, name: type_name }, modifiers, ident.unwrap().to_string(), params),
-            None => Elements::Constructor(TypeDescriptor { package: package_name, name: Vec::new() }, modifiers, ident.unwrap().to_string(), params),
+            Some(mut type_name) => {
+                package_name.append(&mut type_name);
+                Elements::Constructor(TypeDescriptor::from(&package_name), modifiers, ident.unwrap().to_string(), params)
+            },
+            None => Elements::Constructor(TypeDescriptor::from(&package_name), modifiers, ident.unwrap().to_string(), params),
         };
 
         self.push_to_stack(JavaElement::new(ty));
@@ -667,6 +711,28 @@ impl JavaDataCleanListener {
         if let Some(top) = self.stack.top_mut() {
             top.add_member(category, element);
         }
+    }
+
+    fn get_typetype_name(&self, type_type: &Metadata) -> Vec<String> {
+        let mut extend_name: Vec<String> = Vec::new();
+        if type_type.get_members().is_empty() {
+            if let Some(ident_str) = type_type.get_attr(ATTR_EXPRESSION) {
+                extend_name.push(ident_str.clone());
+            }
+        } else {
+            for ident in type_type.get_members() {
+                match ident.get_node_type() {
+                    // TODO: TypeArguments need be produced
+                    MetaType::Identifier | MetaType::TypeIdentifier | MetaType::TypeArguments => {
+                        if let Some(ident_str) = ident.get_attr(ATTR_EXPRESSION) {
+                            extend_name.push(ident_str.clone());
+                        }
+                    },
+                    _ => {}
+                }
+            }
+        }
+        extend_name
     }
 
     fn get_package(&self) -> Option<&Vec<String>> {
@@ -696,22 +762,13 @@ impl JavaDataCleanListener {
         Some(parents)
     }
 
-    fn get_dependency_type_info_from_imports(&self, short_name: &str) -> Option<&TypeDescriptor> {
-        let re = Regex::new(r"[\[|<].*[\]|>]").unwrap();
-        let short_name = re.replace_all(short_name, "");
-        
+    fn get_dependency_type_info_from_imports(&self, td: &TypeDescriptor) -> Option<&TypeDescriptor> {
         if let Some(imports) = self.elements.get(&ElementCategories::Imports) {
             for import in imports {
                 if let Some(ty) = import.get_type() {
                     if let Elements::Import(package) = ty {
-                        if package.to_string() == short_name {
+                        if package.is(td) {
                             return Some(package)
-                        }
-
-                        if let Some(last_name) = package.get_last_name() {
-                            if short_name.starts_with(&last_name) {
-                                return Some(package);
-                            }
                         }
                     }
                 }
@@ -775,7 +832,7 @@ impl<'a> JavaDataCleanPolicy {
     pub fn analysis(&mut self, node: &Metadata) -> LanguageDataExtractorResult<HashMap<ElementCategories, Vec<JavaElement>>> {
         assert_eq!(node.get_node_type(), MetaType::File);
 
-        let mut node_listener = JavaDataCleanListener{
+        let mut node_listener = JavaDataExtractorListener{
             elements: HashMap::new(),
             stack: Stack::new(),
         };
@@ -783,7 +840,7 @@ impl<'a> JavaDataCleanPolicy {
         Ok(node_listener.results())
     }
 
-    fn node_tree_walker(node: &Metadata, listener: &mut JavaDataCleanListener) {
+    fn node_tree_walker(node: &Metadata, listener: &mut JavaDataExtractorListener) {
         listener.enter(&node);
         for child in node.get_members() {
             JavaDataCleanPolicy::node_tree_walker(child, listener);
