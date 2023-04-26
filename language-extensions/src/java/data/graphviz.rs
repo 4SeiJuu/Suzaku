@@ -30,23 +30,26 @@ impl GraphVertex {
     }
 
     pub fn get_package_name(&self) -> String {
-        match match &self.ty {
-            Elements::Package(pkg) => Some(pkg),
+        match &self.ty {
             Elements::Import(td)
             | Elements::Class(td, _, _, _, _, _)
             | Elements::Interface(td, _, _, _, _)
+            | Elements::Enum(td, _, _, _, _)
+            | Elements::Record(td, _, _, _)
             | Elements::Constructor(td, _, _, _)
             | Elements::Field(td, _, _, _, _)
             | Elements::Method(td, _, _, _, _, _)
-            | Elements::CreatorCall(td, _) => Some(&td.package),
-            Elements::MethodCall(_, caller, _, _) => Some(&caller.ty.package),
-            _ => None
-        } {
-            Some(pkg) => match vec_join(&pkg, ".") {
-                Some(name) => name,
+            | Elements::CreatorCall(td, _)
+            | Elements::Type(td) => match vec_join(&td.package, ".") {
+                Some(v) => v,
                 None => String::from("others")
             },
-            None => String::from("others")
+            Elements::Package(pkg) => match vec_join(pkg, ".") {
+                Some(pkg_str) => pkg_str,
+                None => String::from("others")
+            },
+            Elements::MethodCall(_, caller, _, _) => caller.ty.get_package_str(),
+            _ => String::from("others")
         }
     }
 

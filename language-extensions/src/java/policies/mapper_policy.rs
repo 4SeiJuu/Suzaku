@@ -49,14 +49,14 @@ impl JavaDataMappingListener {
         let mapping = |ty: &TypeDescriptor| -> Option<TypeDescriptor> {
             if let Some(keys_str) = &self.keys {
                 let type_name = replace_special_chars(ty.to_string(), vec!["[", "]", "<", ">", "?"], "");
-                let re_eq_or_endswith = Regex::new(format!(".*{}", type_name).as_str()).unwrap();
+                let re_eq_or_endswith = Regex::new(format!(".*{}$", type_name).as_str()).unwrap();
                 let mut key = match re_eq_or_endswith.find(keys_str.as_str()) {
                     Some(value) => Some(value),
                     None => None
                 };
 
                 if key.is_none() && !ty.name.is_empty() {
-                    let re_endswith_front = Regex::new(format!(".*{}", ty.name.first().unwrap()).as_str()).unwrap();
+                    let re_endswith_front = Regex::new(format!(".*{}$", ty.name.first().unwrap()).as_str()).unwrap();
                     key = match re_endswith_front.find(keys_str.as_str()) {
                         Some(value) => Some(value),
                         None => None
@@ -108,6 +108,8 @@ impl JavaDataMappingListener {
                 },
                 // ancestors, annotations, modifiers, name, members
                 Elements::Enum(_ancestors, _annotations, _modifiers, _name, _members) => None,
+                // ancestors, annotations, modifiers, name
+                Elements::Record(_ancestors, _annotations, _modifiers, _name) => None,
                 // ancestors, modifiers, field type, field name, field value
                 Elements::Field(ancestors, modifiers, field_type, field_name, field_value) => {
                     let mut mapped_field_type = None;
@@ -219,6 +221,8 @@ impl JavaMapperPolicy {
                                     Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
                                 // ancestors, annotations, modifiers, name, members
                                 Elements::Enum(ancestors, _, _, name, members) => 
+                                    Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
+                                Elements::Record(ancestors, _, _, name) =>
                                     Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
                                 _ => None
 

@@ -18,6 +18,7 @@ pub enum ElementCategories {
     Classes,
     Interfaces,
     Enums,
+    Records,
     Annotations,
     Fields,
     Methods,
@@ -189,8 +190,8 @@ pub enum Elements {
     Interface(TypeDescriptor, Vec<String>, Vec<String>, String, Vec<TypeDescriptor>),
     // ancestors, annotations, modifiers, name, members
     Enum(TypeDescriptor, Vec<String>, Vec<String>, String, Vec<String>),
-    Annotation,
-    Record,
+    // ancestors, annotations, modifiers, name
+    Record(TypeDescriptor, Vec<String>, Vec<String>, String),
 
     // ancestors, modifiers, ident, params(modifiers, type, name)
     Constructor(TypeDescriptor, Vec<String>, String, Vec<ParamDescriptor>),
@@ -245,6 +246,8 @@ impl ToString for Elements {
             Elements::Interface(ancestors, _, _, name, _) => 
                 format!("{}.{}", ancestors.to_string(), name),
             Elements::Enum(ancestors, _, _, name, _) => 
+                format!("{}.{}", ancestors.to_string(), name),
+            Elements::Record(ancestors, _, _, name) =>
                 format!("{}.{}", ancestors.to_string(), name),
             /* members */
             Elements::Field(ancestors, _, ty, name, value) => match value {
@@ -302,6 +305,8 @@ impl ToSignature for Elements {
             Elements::Interface(ancestors, _, _, name, _) => 
                 replace_special_chars(format!("{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             Elements::Enum(ancestors, _, _, name, _) => 
+                replace_special_chars(format!("{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
+            Elements::Record(ancestors, _, _, name) =>
                 replace_special_chars(format!("{}_{}", ancestors.to_signature(), name), vec!["[", "]", "<", ">"], "_"),
             /* members */
             Elements::Field(ancestors, _, _, name, _) => 

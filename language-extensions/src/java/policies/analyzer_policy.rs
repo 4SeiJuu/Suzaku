@@ -78,6 +78,14 @@ impl JavaAnalyzer {
             }
         }
 
+        if let Some(jvs) = elements.get(&ElementCategories::Records) {
+            for jv in jvs {
+                if let Some((_, vertex)) = self.collect_elements(jv) {
+                    self.elements.insert(vertex.to_signature(), vertex);
+                }
+            }
+        }
+
         self.collect_depends();
 
         Ok(())
@@ -133,6 +141,7 @@ impl JavaAnalyzer {
                 Elements::Class(_, _, _, _, _, _) 
                 | Elements::Interface(_, _, _, _, _) 
                 | Elements::Enum(_, _, _, _, _)
+                | Elements::Record(_, _, _, _)
                 | Elements::Constructor(_, _, _, _) 
                 | Elements::Field(_, _, _, _, _) 
                 | Elements::Method(_, _, _, _, _, _) => 
@@ -202,6 +211,7 @@ impl JavaAnalyzer {
                 },
                 // ancestors, annotations, modifiers, name, members
                 Elements::Enum(_, _, _, _, _) => {},
+                Elements::Record(_, _, _, _) => {},
                 // ancestors, modifiers, ident, params(modifiers, type, name)
                 Elements::Constructor(_, _, _, params) => {
                     for param in params {

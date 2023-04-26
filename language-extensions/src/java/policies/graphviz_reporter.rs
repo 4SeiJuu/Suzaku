@@ -36,7 +36,6 @@ impl Reporter for GraphvizReporter {
                         String::from("node [shape=plaintext fontname=\"Sans serif\" fontsize=\"8\"];"),
                     ];
     
-    
                     for edge in data.depends.values() {
                         graph_contents.push(edge.to_graphviz_edge());
                     }

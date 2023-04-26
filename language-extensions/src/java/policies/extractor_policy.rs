@@ -53,6 +53,7 @@ impl JavaDataExtractorListener {
             MetaType::ClassDeclaration => self.analysis_class_declaration(node),
             MetaType::InterfaceDeclaration => self.analysis_interface_declaration(node),
             MetaType::EnumDeclaration => self.analysis_enum_declaration(node),
+            MetaType::RecordDeclaration => self.analysis_recrod_declaration(node),
             MetaType::FieldDeclaration => self.analysis_field_declaration(node),
             MetaType::MethodDeclaration | MetaType::InterfaceMethodDeclaration => self.analysis_method_declaration(node),
             MetaType::AnnotationTypeDeclaration => {},
@@ -111,6 +112,13 @@ impl JavaDataExtractorListener {
                     None
                 }
             },
+            MetaType::RecordDeclaration => {
+                if let Elements::Record(_, _, _, _) = ty.unwrap() {
+                    Some((ElementCategories::Records, self.stack.pop()))
+                } else {
+                    None
+                }
+            }
             MetaType::FieldDeclaration => {
                 if let Elements::Field(_, _, _, _, _) = ty.unwrap() {
                     Some((ElementCategories::Fields, self.stack.pop()))
@@ -346,7 +354,7 @@ impl JavaDataExtractorListener {
                             _ => ()
                         }
                     } 
-                }
+                },
                 _ => ()
             }
         }
@@ -362,6 +370,44 @@ impl JavaDataExtractorListener {
                 Elements::Enum(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), members)
             },
             None => Elements::Enum(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap(), members)
+        };
+
+        self.push_to_stack(JavaElement::new(ty));
+    }
+
+    fn analysis_recrod_declaration(&mut self, node: &Metadata) {
+        assert_eq!(node.get_node_type(), MetaType::RecordDeclaration);
+
+        let mut annotations: Vec<String> = Vec::new();
+        let mut modifiers: Vec<String> = Vec::new();
+        let mut ident: Option<String> = None;
+
+        for member in node.get_members() {
+            match member.get_node_type() {
+                MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
+                    annotations.push(attr.to_string());
+                },
+                MetaType::Modifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
+                    modifiers.push(attr.to_string());
+                },
+                MetaType::Identifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
+                    ident = Some(attr.to_string());
+                },
+                _ => ()
+            }
+        }
+
+        let mut package_name: Vec<String> = match self.get_package() {
+            Some(package_name) => package_name.clone(),
+            None => Vec::new()
+        };
+
+        let ty = match self.get_type() {
+            Some(mut type_name) => {
+                package_name.append(&mut type_name);
+                Elements::Record(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap())
+            },
+            None => Elements::Record(TypeDescriptor::from(&package_name), annotations, modifiers, ident.unwrap())
         };
 
         self.push_to_stack(JavaElement::new(ty));
