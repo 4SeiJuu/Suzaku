@@ -587,6 +587,7 @@ impl JavaDataExtractorListener {
                 name: None
             })
         }
+
         let ty = Elements::MethodCall(cast, caller.unwrap(), ident, params);
         self.push_to_stack(JavaElement::new(ty));
     }
@@ -714,10 +715,10 @@ impl JavaDataExtractorListener {
     }
 
     fn get_typetype_name(&self, type_type: &Metadata) -> Vec<String> {
-        let mut extend_name: Vec<String> = Vec::new();
+        let mut typetype_name: Vec<String> = Vec::new();
         if type_type.get_members().is_empty() {
             if let Some(ident_str) = type_type.get_attr(ATTR_EXPRESSION) {
-                extend_name.push(ident_str.clone());
+                typetype_name.push(ident_str.clone());
             }
         } else {
             for ident in type_type.get_members() {
@@ -725,14 +726,14 @@ impl JavaDataExtractorListener {
                     // TODO: TypeArguments need be produced
                     MetaType::Identifier | MetaType::TypeIdentifier | MetaType::TypeArguments => {
                         if let Some(ident_str) = ident.get_attr(ATTR_EXPRESSION) {
-                            extend_name.push(ident_str.clone());
+                            typetype_name.push(ident_str.clone());
                         }
                     },
                     _ => {}
                 }
             }
         }
-        extend_name
+        typetype_name
     }
 
     fn get_package(&self) -> Option<&Vec<String>> {
@@ -778,6 +779,7 @@ impl JavaDataExtractorListener {
     }
 
     fn get_caller(&self, caller_name: Vec<String>) -> Option<Caller> {
+        // find variable defination
         let cn = vec_join::<String>(&caller_name, ".").unwrap();
         let mut index = self.stack.len();
         while index > 0 {
@@ -787,7 +789,6 @@ impl JavaDataExtractorListener {
                     match item_type {
                         // ancestors, annotation, modifiers, return type, function name, params(variable(modifier, type, name))
                         Elements::Method(_, _, _, _, _, params) => {
-                            
                             for param in params {
                                 if param.name == cn {
                                     return Some(Caller { ty: param.ty.clone(), name: Some(cn) })
@@ -811,18 +812,24 @@ impl JavaDataExtractorListener {
                                                     }
                                                 }
                                             },
-                                            _ => return None
+                                            _ => continue
                                         }
                                     }
                                 }
                             }
                         },
-                        _ => return None
+                        _ => continue
                     }
                 }
             }
         }
-        None
+
+        // find type import
+        let caller_type = TypeDescriptor::from(&caller_name);
+        match self.get_dependency_type_info_from_imports(&caller_type) {
+            Some(caller_full_type) => Some(Caller { ty: caller_full_type.clone(), name: None}),
+            None => Some(Caller { ty: caller_type.clone(), name: None})
+        }
     }
 }
 

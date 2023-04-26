@@ -79,3 +79,11 @@ where T: ToString {
         }
     }
 }
+
+pub fn replace_special_chars(ori: String, speical_chars: Vec<&str>, to: &str) -> String {
+    let mut result = ori.clone();
+    for ch in speical_chars {
+        result = result.replace(ch, to);
+    }
+    result
+}

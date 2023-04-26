@@ -6,7 +6,10 @@ use serde::{
 use strum::EnumIter;
 use inflections::case::is_pascal_case;
 
-use crate::utils::vec_join;
+use crate::utils::{
+    vec_join,
+    replace_special_chars
+};
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Copy, EnumIter)]
 pub enum ElementCategories {
@@ -71,7 +74,7 @@ impl TypeDescriptor {
             return true;
         } 
         
-        if let Some(first_name) = other.name.get(0) {
+        if let Some(first_name) = other.name.first() {
             if name_str.ends_with(first_name) {
                 return true;
             }
@@ -118,11 +121,15 @@ impl From<&Vec<String>> for TypeDescriptor {
         let mut package: Vec<String> = Vec::new();
         let mut name: Vec<String> = Vec::new();
 
-        for item in value {
-            if is_pascal_case(item.as_str()) {
-                name.push(item.clone());
-            } else {
-                package.push(item.clone());
+        if value.len() == 1 {
+            name.push(value.first().unwrap().clone());
+        } else {
+            for item in value {
+                if is_pascal_case(item.as_str()) {
+                    name.push(item.clone());
+                } else {
+                    package.push(item.clone());
+                }
             }
         }
 
@@ -320,12 +327,4 @@ pub trait IElement {
     fn get_type_mut(&mut self) -> Option<&mut Elements>;
     fn get_member_by_category(&self, category: ElementCategories) -> Option<&Vec<Box<Self>>>;
     fn get_member_by_category_mut(&mut self, category: ElementCategories) -> Option<&mut Vec<Box<Self>>>;
-}
-
-fn replace_special_chars(ori: String, speical_chars: Vec<&str>, to: &str) -> String {
-    let mut result = ori.clone();
-    for ch in speical_chars {
-        result = result.replace(ch, to);
-    }
-    result
 }

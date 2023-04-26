@@ -11,6 +11,7 @@ use std::{
 use serde::Deserialize;
 use serde_json::Value;
 use strum::IntoEnumIterator;
+use regex::Regex;
 
 use suzaku_extension_sdk::{
     analyzer::{
@@ -29,22 +30,43 @@ use suzaku_extension_sdk::{
         LanguageDataMapperResult, 
         LanguageDataMapperPolicy
     },
-    utils, 
+    utils::{
+        list_files,
+        replace_special_chars,
+    }, 
     ELEMENT_FILE_EXTENSION
 };
 
 use super::super::data::element::JavaElement;
 
 struct JavaDataMappingListener {
-    types: HashMap<String, TypeDescriptor>
+    types: HashMap<String, TypeDescriptor>,
+    keys: Option<String>
 }
 
 impl JavaDataMappingListener {
     fn map(&self, element: &mut JavaElement) {
         let mapping = |ty: &TypeDescriptor| -> Option<TypeDescriptor> {
-            for (_, td) in &self.types {
-                if td.is(ty) {
-                    return Some(td.clone());
+            if let Some(keys_str) = &self.keys {
+                let type_name = replace_special_chars(ty.to_string(), vec!["[", "]", "<", ">", "?"], "");
+                let re_eq_or_endswith = Regex::new(format!(".*{}", type_name).as_str()).unwrap();
+                let mut key = match re_eq_or_endswith.find(keys_str.as_str()) {
+                    Some(value) => Some(value),
+                    None => None
+                };
+
+                if key.is_none() && !ty.name.is_empty() {
+                    let re_endswith_front = Regex::new(format!(".*{}", ty.name.first().unwrap()).as_str()).unwrap();
+                    key = match re_endswith_front.find(keys_str.as_str()) {
+                        Some(value) => Some(value),
+                        None => None
+                    };
+                }
+
+                if let Some(key_name) = key {
+                    if let Some(td) = self.types.get(key_name.as_str()) {
+                        return Some(td.clone());
+                    }
                 }
             }
             None
@@ -201,7 +223,12 @@ impl JavaMapperPolicy {
                                 _ => None
 
                             } {
-                                listener.types.insert(td.to_string(), td);
+                                let key = td.to_string();
+                                listener.types.insert(key.clone(), td);
+                                listener.keys = match &listener.keys {
+                                    Some(value) => Some(format!("{}\n{}", value, key)),
+                                    None => Some(key.clone())
+                                } ;
                             }
                         }
                     }
@@ -240,29 +267,59 @@ impl LanguageDataMapperPolicy for JavaMapperPolicy {
 
     fn execute(&mut self, data: &Vec<PathBuf>, output: &PathBuf) -> LanguageDataMapperResult<PathBuf> {
         // collect all files
+        println!("# collecting files ... ");
         let mut filelist: Vec<PathBuf> = Vec::new();
         for df in data {
             if df.is_file() {
                 filelist.push(df.to_path_buf());
             } else {
                 let filename_pattern = format!("{}/**/*.{}", df.to_str().unwrap(), ELEMENT_FILE_EXTENSION);
-                if let Some(mut files) = utils::list_files(df, filename_pattern.as_str(), &Vec::new()) {
+                if let Some(mut files) = list_files(df, filename_pattern.as_str(), &Vec::new()) {
                     filelist.append(&mut files);
                 }
             }
         }
+        let total = &filelist.len();
+        println!("-------------------------------------------------");
+        println!(" total: {} file(s) collected\n", total);
 
         let mut element_tree_listener = JavaDataMappingListener {
-            types: HashMap::new()
+            types: HashMap::new(),
+            keys: None
         };
 
-        // load all elements
-        println!("# Loading files ...");
-        let total = filelist.len();
+        // collect all types
+        println!("# collecting ... ");
+        let mut index = 1;
+        for elements_file in &filelist {
+            print!(" - [{} / {}] collecting {} ... ", index, total, elements_file.to_str().unwrap());
+            if let Ok(elements) = self.load_elements_from_file(&PathBuf::from(elements_file)) {
+                self.collecting(&elements, &mut element_tree_listener);
+                println!("done");
+            }
+            index += 1;
+        }
+        println!("-------------------------------------------------");
+        println!(" total: {} type(s) collected\n", &element_tree_listener.types.len());
+
+        // mapping types
+        println!("# mapping ... ");
+        let mut index = 1;
+        for elements_file in &filelist {
+            print!(" - [{} / {}] mapping {} ... ", index, total, elements_file.to_str().unwrap());
+            if let Ok(mut elements) = self.load_elements_from_file(&PathBuf::from(elements_file)) {
+                self.mapping(&mut elements, &mut element_tree_listener);
+                println!("done");
+            }
+            index += 1;
+        }
+
+        // create combined element file
+        println!("# merging files ...");
         let mut index = 1;
         let mut all_elements: HashMap<ElementCategories, Vec<JavaElement>> = HashMap::new();
-        for elements_file in filelist {
-            print!(" - [{} / {}] loading {} ... ", index, total, elements_file.to_str().unwrap());
+        for elements_file in &filelist {
+            print!(" - [{} / {}] merging {} ... ", index, total, elements_file.to_str().unwrap());
 
             if let Ok(elements) = self.load_elements_from_file(&PathBuf::from(elements_file)) {
                 for (cate, mut element_list) in elements {
@@ -276,24 +333,11 @@ impl LanguageDataMapperPolicy for JavaMapperPolicy {
                     };
                 }
             }
-
             println!("done");
             index += 1;
         }
         println!("-------------------------------------------------");
-        println!(" {} files loaded\n", total);
-
-        // collect all types
-        print!("# collecting types ... ");
-        self.collecting(&all_elements, &mut element_tree_listener);
-        println!("done");
-        println!("-------------------------------------------------");
-        println!(" total: {} types collected\n", element_tree_listener.types.len());
-
-        // mapping types
-        print!("# mapping types ... ");
-        self.mapping(&mut all_elements, &mut element_tree_listener);
-        println!("done\n");
+        println!(" {} file(s) merged\n", total);
 
         // save all mapped elements
         let mapped_elements_file = output.join(format!("{}.{}", "mapped", ELEMENT_FILE_EXTENSION));

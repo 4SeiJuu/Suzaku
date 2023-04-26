@@ -131,7 +131,7 @@ pub fn extract(metadatas: &Vec<PathBuf>, output_dir: &PathBuf, excludes: &Vec<Pa
     }
 
     fn extracting(index: usize, total: usize, metadata: &PathBuf, output: &PathBuf) -> LanguageDataExtractorResult<PathBuf> {
-        print!(" * data cleaning [{} / {}] '{}' -> ", index, total, metadata.to_str().unwrap());
+        print!(" * extracting [{} / {}] '{}' -> ", index, total, metadata.to_str().unwrap());
         match factory::ExtensionFactory::get_data_extractor_policy("java") {
             Some(mut policy) => {
                 match policy.execute(metadata) {
