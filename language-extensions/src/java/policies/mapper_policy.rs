@@ -41,22 +41,24 @@ use super::super::data::element::JavaElement;
 
 struct JavaDataMappingListener {
     types: HashMap<String, TypeDescriptor>,
-    keys: Option<String>
+    keys: Vec<String>
 }
 
 impl JavaDataMappingListener {
     fn map(&self, element: &mut JavaElement) {
         let mapping = |ty: &TypeDescriptor| -> Option<TypeDescriptor> {
-            if let Some(keys_str) = &self.keys {
-                let type_name = replace_special_chars(ty.to_string(), vec!["[", "]", "<", ">", "?"], "");
-                let re_eq_or_endswith = Regex::new(format!(".*{}$", type_name).as_str()).unwrap();
+            let keys_str = &self.keys.join("\n");
+            if !keys_str.is_empty() {
+                let type_str = replace_special_chars(ty.to_string(), vec!["[", "]", "<", ">", "?"], "");
+                let re_eq_or_endswith = Regex::new(format!(".*{}\n", type_str).as_str()).unwrap();
                 let mut key = match re_eq_or_endswith.find(keys_str.as_str()) {
                     Some(value) => Some(value),
                     None => None
                 };
 
                 if key.is_none() && !ty.name.is_empty() {
-                    let re_endswith_front = Regex::new(format!(".*{}$", ty.name.first().unwrap()).as_str()).unwrap();
+                    let type_name_str = replace_special_chars(ty.name.first().unwrap().clone(), vec!["[", "]", "<", ">", "?"], "");
+                    let re_endswith_front = Regex::new(format!(".*{}\n", type_name_str).as_str()).unwrap();
                     key = match re_endswith_front.find(keys_str.as_str()) {
                         Some(value) => Some(value),
                         None => None
@@ -64,7 +66,7 @@ impl JavaDataMappingListener {
                 }
 
                 if let Some(key_name) = key {
-                    if let Some(td) = self.types.get(key_name.as_str()) {
+                    if let Some(td) = self.types.get(key_name.as_str().trim()) {
                         return Some(td.clone());
                     }
                 }
@@ -205,7 +207,7 @@ impl JavaMapperPolicy {
         // collecting all types
         for (cate, jvs) in data {
             match cate {
-                ElementCategories::Classes | ElementCategories::Interfaces | ElementCategories::Enums => {
+                ElementCategories::Classes | ElementCategories::Interfaces | ElementCategories::Enums | ElementCategories::Records => {
                     for jv in jvs {
                         if let Some(vt) = jv.get_type() {
                             if listener.types.contains_key(&vt.to_string()) {
@@ -222,17 +224,15 @@ impl JavaMapperPolicy {
                                 // ancestors, annotations, modifiers, name, members
                                 Elements::Enum(ancestors, _, _, name, members) => 
                                     Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
-                                Elements::Record(ancestors, _, _, name) =>
+                                // ancestors, annotations, modifiers, name
+                                Elements::Record(ancestors, _, _, name) => 
                                     Some(TypeDescriptor { package: ancestors.package.clone(), name: get_combined_name(&ancestors.name, name) }),
                                 _ => None
 
                             } {
                                 let key = td.to_string();
                                 listener.types.insert(key.clone(), td);
-                                listener.keys = match &listener.keys {
-                                    Some(value) => Some(format!("{}\n{}", value, key)),
-                                    None => Some(key.clone())
-                                } ;
+                                listener.keys.push(key);
                             }
                         }
                     }
@@ -289,7 +289,7 @@ impl LanguageDataMapperPolicy for JavaMapperPolicy {
 
         let mut element_tree_listener = JavaDataMappingListener {
             types: HashMap::new(),
-            keys: None
+            keys: Vec::new()
         };
 
         // collect all types

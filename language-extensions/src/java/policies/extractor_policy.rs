@@ -157,7 +157,10 @@ impl JavaDataExtractorListener {
             _ => None
         } {
             if let Some(element) = element {
-                if category == ElementCategories::Classes || category == ElementCategories::Interfaces || category == ElementCategories::Enums {
+                if category == ElementCategories::Classes 
+                || category == ElementCategories::Interfaces 
+                || category == ElementCategories::Enums 
+                || category == ElementCategories::Records {
                     self.add_element(category, element)
                 } else {
                     self.add_element_to_parent(category, element.clone());

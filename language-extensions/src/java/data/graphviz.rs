@@ -42,14 +42,14 @@ impl GraphVertex {
             | Elements::CreatorCall(td, _)
             | Elements::Type(td) => match vec_join(&td.package, ".") {
                 Some(v) => v,
-                None => String::from("others")
+                None => String::from("external")
             },
             Elements::Package(pkg) => match vec_join(pkg, ".") {
                 Some(pkg_str) => pkg_str,
-                None => String::from("others")
+                None => String::from("external")
             },
             Elements::MethodCall(_, caller, _, _) => caller.ty.get_package_str(),
-            _ => String::from("others")
+            _ => String::from("external")
         }
     }
 
