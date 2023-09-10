@@ -8,16 +8,16 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use suzaku_extension_sdk::{
+    ATTR_EXPRESSION,
     extractor::{
         LanguageDataExtractorPolicy,
         LanguageDataExtractorPolicyError,
         LanguageDataExtractorResult
     }, 
     meta::{
-        IMeta, 
+        IMetadata, 
         Metadata,
     },
-    meta_type::MetaType,
     element::{
         IElement,
         Elements,
@@ -30,10 +30,7 @@ use suzaku_extension_sdk::{
     utils::vec_join, 
 };
 
-use super::{
-    parser_policy::ATTR_EXPRESSION,
-    super::data::element::JavaElement
-};
+use crate::java::data::{element::JavaElement, meta_type::MetaType};
 
 
 pub struct JavaDataExtractorListener {
@@ -46,8 +43,8 @@ impl JavaDataExtractorListener {
         self.elements.clone()
     }
 
-    fn enter(&mut self, node: &Metadata) {
-        match node.get_node_type() {
+    fn enter(&mut self, node: &Metadata<MetaType>) {
+        match node.get_meta_type() {
             MetaType::PackageDeclaration => self.analysis_package_declaration(node),
             MetaType::ImportDeclaration => self.analysis_import_declaration(node),
             MetaType::ClassDeclaration => self.analysis_class_declaration(node),
@@ -65,7 +62,7 @@ impl JavaDataExtractorListener {
         }
     }
 
-    fn exit(&mut self, node: &Metadata) {
+    fn exit(&mut self, node: &Metadata<MetaType>) {
         let top = self.stack.top();
         if top.is_none() {
             return;
@@ -76,7 +73,7 @@ impl JavaDataExtractorListener {
             panic!("[ERROR] invalid top node of stack. element type not found: {:?}", top);
         }
 
-        if let Some((category, element)) = match node.get_node_type() {
+        if let Some((category, element)) = match node.get_meta_type() {
             MetaType::PackageDeclaration => {
                 if let Elements::Package(_) = ty.unwrap() {
                     Some((ElementCategories::Package, self.stack.pop()))
@@ -172,10 +169,10 @@ impl JavaDataExtractorListener {
         }
     }
     
-    fn analysis_package_declaration(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::PackageDeclaration);
+    fn analysis_package_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::PackageDeclaration);
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::QualifiedName => {
                     let mut idents: Vec<String> = Vec::new();
                     for ident in member.get_members() {
@@ -189,10 +186,10 @@ impl JavaDataExtractorListener {
         }
     }
 
-    fn analysis_import_declaration(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::ImportDeclaration);
+    fn analysis_import_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::ImportDeclaration);
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::QualifiedName => {
                     let mut idents: Vec<String> = Vec::new();
                     for ident in member.get_members() {
@@ -206,8 +203,8 @@ impl JavaDataExtractorListener {
         }
     }
 
-    fn analysis_class_declaration(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::ClassDeclaration);
+    fn analysis_class_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::ClassDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
@@ -216,7 +213,7 @@ impl JavaDataExtractorListener {
         let mut implements: Vec<TypeDescriptor> = Vec::new();
 
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     annotations.push(attr.to_string());
                 },
@@ -243,7 +240,7 @@ impl JavaDataExtractorListener {
                         }
                     } else {
                         for type_type in member.get_members() {
-                            match type_type.get_node_type() {
+                            match type_type.get_meta_type() {
                                 MetaType::TypeType => {
                                     let implement_name = self.get_typetype_name(type_type);
                                     if !implement_name.is_empty() {
@@ -280,8 +277,8 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_interface_declaration(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::InterfaceDeclaration);
+    fn analysis_interface_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::InterfaceDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
@@ -289,7 +286,7 @@ impl JavaDataExtractorListener {
         let mut extends: Vec<TypeDescriptor> = Vec::new();
 
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     annotations.push(attr.to_string());
                 },
@@ -331,8 +328,8 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_enum_declaration(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::EnumDeclaration);
+    fn analysis_enum_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::EnumDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
@@ -340,7 +337,7 @@ impl JavaDataExtractorListener {
         let mut members: Vec<String> = Vec::new();
 
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     annotations.push(attr.to_string());
                 },
@@ -352,7 +349,7 @@ impl JavaDataExtractorListener {
                 },
                 MetaType::EnumConstants => {
                     for constant in member.get_members() {
-                        match constant.get_node_type() {
+                        match constant.get_meta_type() {
                             MetaType::EnumConstant => members.push(constant.get_attr(ATTR_EXPRESSION).unwrap().to_string()),
                             _ => ()
                         }
@@ -378,15 +375,15 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_recrod_declaration(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::RecordDeclaration);
+    fn analysis_recrod_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::RecordDeclaration);
 
         let mut annotations: Vec<String> = Vec::new();
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
 
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     annotations.push(attr.to_string());
                 },
@@ -416,8 +413,8 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_field_declaration(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::FieldDeclaration);
+    fn analysis_field_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::FieldDeclaration);
 
         let mut modifiers: Vec<String> = Vec::new();
         let mut ty: Option<TypeDescriptor> = None;
@@ -425,7 +422,7 @@ impl JavaDataExtractorListener {
         let mut variable_init: Option<String> = None;
 
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::Modifier => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     modifiers.push(attr.to_string());
                 },
@@ -446,7 +443,7 @@ impl JavaDataExtractorListener {
                     }
 
                     for child in member.get_members() {
-                        match child.get_node_type() {
+                        match child.get_meta_type() {
                             MetaType::VariableDeclaratorId => variable_id = Some(child.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                             MetaType::VariableInitializer => if let Some(attr) = child.get_attr(ATTR_EXPRESSION) {
                                 variable_init = Some(attr.to_string());
@@ -475,8 +472,8 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_method_declaration(&mut self, node: &Metadata) {
-        assert!(node.get_node_type() == MetaType::MethodDeclaration || node.get_node_type() == MetaType::InterfaceMethodDeclaration);
+    fn analysis_method_declaration(&mut self, node: &Metadata<MetaType>) {
+        assert!(node.get_meta_type() == MetaType::MethodDeclaration || node.get_meta_type() == MetaType::InterfaceMethodDeclaration);
 
         let mut annotation: Option<String> = None;
         let mut modifiers: Vec<String> = Vec::new();
@@ -485,7 +482,7 @@ impl JavaDataExtractorListener {
         let mut params: Vec<ParamDescriptor> = Vec::new();
 
         for member in node.get_members() {
-            match member.get_node_type() {
+            match member.get_meta_type() {
                 MetaType::Annotation => if let Some(attr) = member.get_attr(ATTR_EXPRESSION) {
                     annotation = Some(attr.as_str().to_string());
                 },
@@ -496,9 +493,9 @@ impl JavaDataExtractorListener {
                     let type_name = match member.get_members().is_empty() {
                         true => vec![member.get_attr(ATTR_EXPRESSION).unwrap().to_string()],
                         false => {
-                            let mut type_type_member: Option<&Metadata> = None;
+                            let mut type_type_member: Option<&Metadata<MetaType>> = None;
                             for sub_member in member.get_members() {
-                                if sub_member.get_node_type() == MetaType::TypeType {
+                                if sub_member.get_meta_type() == MetaType::TypeType {
                                     type_type_member = Some(sub_member);
                                     break;
                                 }
@@ -523,13 +520,13 @@ impl JavaDataExtractorListener {
                     name = Some(attr.clone());
                 },
                 MetaType::FormalParameters => for child in member.get_members() {
-                    match child.get_node_type() {
+                    match child.get_meta_type() {
                         MetaType::FormalParameter => {
                             let mut modifiers: Vec<String> = Vec::new();
                             let mut ty: Option<TypeDescriptor> = None;
                             let mut ident: Option<String> = None;
                             for item in child.get_members() {
-                                match item.get_node_type() {
+                                match item.get_meta_type() {
                                     MetaType::VariableModifier => modifiers.push(item.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                                     MetaType::TypeType => {
                                         let idents = self.get_typetype_name(item);
@@ -577,20 +574,20 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_method_call(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::MethodCall);
+    fn analysis_method_call(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::MethodCall);
 
         let mut cast: Option<String> = None;
         let mut idents: Vec<String> = Vec::new();
         let mut params: Vec<String> = Vec::new();
 
         for child in node.get_members() {
-            match child.get_node_type() {
+            match child.get_meta_type() {
                 MetaType::TypeType => cast = Some(child.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                 MetaType::Identifier => idents.push(child.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                 MetaType::ExpressionList => if child.get_members().len() > 0 {
                     for param_node in child.get_members() {
-                        if param_node.get_node_type() != MetaType::Separator {
+                        if param_node.get_meta_type() != MetaType::Separator {
                             params.push(param_node.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string());
                         }
                     }
@@ -641,19 +638,19 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_creator(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::Creator);
+    fn analysis_creator(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::Creator);
 
         let mut creator_name: Vec<String> = Vec::new();
         let mut rests: Vec<String> = Vec::new();
 
         for child in node.get_members() {
-            match child.get_node_type() {
+            match child.get_meta_type() {
                 MetaType::CreatedName => for ident in child.get_members() {
                     creator_name.push(ident.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string())
                 },
                 MetaType::ClassCreatorRest => if let Some(arguments) = child.get_members().front() {
-                    assert_eq!(arguments.get_node_type(), MetaType::Arguments);
+                    assert_eq!(arguments.get_meta_type(), MetaType::Arguments);
                     if arguments.get_members().len() > 0 {
                         for arg in arguments.get_members() {
                             rests.push(arg.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string());
@@ -678,27 +675,27 @@ impl JavaDataExtractorListener {
         self.push_to_stack(JavaElement::new(ty));
     }
 
-    fn analysis_constructor(&mut self, node: &Metadata) {
-        assert_eq!(node.get_node_type(), MetaType::ConstructorDeclaration);
+    fn analysis_constructor(&mut self, node: &Metadata<MetaType>) {
+        assert_eq!(node.get_meta_type(), MetaType::ConstructorDeclaration);
 
         let mut modifiers: Vec<String> = Vec::new();
         let mut ident: Option<String> = None;
         let mut params: Vec<ParamDescriptor> = Vec::new();
 
         for child in node.get_members() {
-            match child.get_node_type() {
+            match child.get_meta_type() {
                 MetaType::Modifier => modifiers.push(child.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                 MetaType::Identifier => ident = Some(child.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                 MetaType::FormalParameters => if child.get_members().len() > 0 {
                     for param in child.get_members() {
-                        match param.get_node_type() {
+                        match param.get_meta_type() {
                             MetaType::FormalParameter => {
                                 let mut param_modifiers: Vec<String> = Vec::new();
                                 let mut ty: Option<TypeDescriptor> = None;
                                 let mut name: Option<String> = None;
 
                                 for part in param.get_members() {
-                                    match part.get_node_type() {
+                                    match part.get_meta_type() {
                                         MetaType::VariableModifier => param_modifiers.push(part.get_attr(ATTR_EXPRESSION).as_ref().unwrap().to_string()),
                                         MetaType::TypeType => {
                                             let type_name = self.get_typetype_name(part);
@@ -763,7 +760,7 @@ impl JavaDataExtractorListener {
         }
     }
 
-    fn get_typetype_name(&self, type_type: &Metadata) -> Vec<String> {
+    fn get_typetype_name(&self, type_type: &Metadata<MetaType>) -> Vec<String> {
         let mut typetype_name: Vec<String> = Vec::new();
         if type_type.get_members().is_empty() {
             if let Some(ident_str) = type_type.get_attr(ATTR_EXPRESSION) {
@@ -771,7 +768,7 @@ impl JavaDataExtractorListener {
             }
         } else {
             for ident in type_type.get_members() {
-                match ident.get_node_type() {
+                match ident.get_meta_type() {
                     // TODO: TypeArguments need be produced
                     MetaType::Identifier | MetaType::TypeIdentifier | MetaType::TypeArguments => {
                         if let Some(ident_str) = ident.get_attr(ATTR_EXPRESSION) {
@@ -885,8 +882,8 @@ impl JavaDataExtractorListener {
 pub struct JavaDataCleanPolicy;
 
 impl<'a> JavaDataCleanPolicy {
-    pub fn analysis(&mut self, node: &Metadata) -> LanguageDataExtractorResult<HashMap<ElementCategories, Vec<JavaElement>>> {
-        assert_eq!(node.get_node_type(), MetaType::File);
+    pub fn analysis(&mut self, node: &Metadata<MetaType>) -> LanguageDataExtractorResult<HashMap<ElementCategories, Vec<JavaElement>>> {
+        assert_eq!(node.get_meta_type(), MetaType::File);
 
         let mut node_listener = JavaDataExtractorListener{
             elements: HashMap::new(),
@@ -896,7 +893,7 @@ impl<'a> JavaDataCleanPolicy {
         Ok(node_listener.results())
     }
 
-    fn node_tree_walker(node: &Metadata, listener: &mut JavaDataExtractorListener) {
+    fn node_tree_walker(node: &Metadata<MetaType>, listener: &mut JavaDataExtractorListener) {
         listener.enter(&node);
         for child in node.get_members() {
             JavaDataCleanPolicy::node_tree_walker(child, listener);
@@ -923,7 +920,7 @@ impl LanguageDataExtractorPolicy for JavaDataCleanPolicy {
             deserializer.disable_recursion_limit();
             let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
             let v = Value::deserialize(deserializer).unwrap();
-            let context: Metadata = serde_json::from_value(v).unwrap();
+            let context: Metadata<MetaType> = serde_json::from_value(v).unwrap();
             // end solve issue
 
             if let Ok(elements) = self.analysis(&context) {

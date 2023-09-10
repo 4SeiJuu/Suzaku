@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 suzaku-extension-sdk = { path = "../extension-sdk" }
+suzaku-codegen = { path = "../codegen" }
 
 antlr-rust = { version = "0.3.0-beta" }
 serde = { version = "1.0", features = ["derive"] }

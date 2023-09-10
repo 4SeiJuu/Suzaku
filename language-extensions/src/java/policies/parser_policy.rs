@@ -9,6 +9,9 @@ use antlr_rust::{
 };
 
 use suzaku_extension_sdk::{
+    ATTR_FOLDER,
+    ATTR_FILE,
+    SRC_FILE_EXTENSION,
     parser::{
         LanguageParserPolicy, 
         LanguageParsePolicyInfo,
@@ -17,36 +20,29 @@ use suzaku_extension_sdk::{
         LanguageParseResult,
     },
     meta::{
-        IMeta,
+        IMetadata,
         Metadata
     },
-    meta_type::MetaType, 
-    reorganzier::LanguageMetaReorganizePolicy,
+    reorganzier::LanguageMetaReorganizePolicy, 
+    parser_listener::ParserListener,
 };
+
+use crate::java::data::meta_type::MetaType;
 
 use super::{
     super::generated::{
         javalexer::JavaLexer,
         javaparser::*,
     },
-    reorganizer::JavaMetaReorganizePolicy,
-    parser_listener::{
-        ParserListener,
-    }
+    reorganizer::JavaMetaReorganizePolicy
 };
 
-pub const ATTR_EXPRESSION: &str = "EXPRESSION";
-pub const ATTR_FOLDER: &str = "FOLDER";
-pub const ATTR_FILE: &str = "FILE";
-pub const ATTR_HASH_CODE: &str = "HASH";
-
-pub const SRC_FILE_EXTENSION: &str = "java";
 
 #[derive(Debug, Clone, Copy)]
 pub struct JavaParserPolicy;
 
 impl JavaParserPolicy {
-    fn parse(&self, folder: &PathBuf, relative_file_path: &PathBuf) -> Option<Metadata> {
+    fn parse(&self, folder: &PathBuf, relative_file_path: &PathBuf) -> Option<Metadata<MetaType>> {
         let src = PathBuf::from_iter(vec![folder, relative_file_path]);
         if src.is_file() && src.exists() {
             let content = fs::read_to_string(src).expect("should read context of file");
@@ -60,7 +56,7 @@ impl JavaParserPolicy {
             file_node.set_attr(ATTR_FILE, relative_file_path.to_str().unwrap());
 
             let reorganizer = JavaMetaReorganizePolicy::new();
-            let parser_listener: ParserListener = ParserListener::new(file_node, Some(Box::new(reorganizer)));
+            let parser_listener: ParserListener<MetaType> = ParserListener::new(file_node, Some(Box::new(reorganizer)));
     
             let mut parser = JavaParser::new(token_source);
             let listener_id = parser.add_parse_listener(Box::new(parser_listener));

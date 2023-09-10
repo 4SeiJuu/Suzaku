@@ -1,14 +1,16 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr, fmt::Debug};
+
+use serde::Serialize;
 
 use crate::stack::Stack;
 
 use super::{
     reorganzier::LanguageMetaReorganizePolicy, 
     meta::{
-        IMeta,
+        IMetaType,
+        IMetadata,
         Metadata,
-    },
-    meta_type::MetaType
+    }
 };
 
 #[derive(Debug)]
@@ -24,18 +26,19 @@ pub trait LanguageParsePolicyInfo {
     fn get_filename_extensions(&self) -> Option<Vec<String>>;
 }
 
-pub trait LanguageParserListener {
-    fn new(root_node: Metadata, reorganizer: Option<Box<dyn LanguageMetaReorganizePolicy>>) -> Self;
-    fn results(&mut self) -> Option<Metadata>;
-    fn stack(&self) -> &Stack<Metadata>;
-    fn stack_mut(&mut self) -> &mut Stack<Metadata>;
-    fn reorganizer(&mut self) -> Option<&mut dyn LanguageMetaReorganizePolicy>;
+pub trait LanguageParserListener<M>
+where M: IMetaType + ToString + FromStr + Serialize + Debug + Eq + Clone {
+    fn new(root_node: Metadata<M>, reorganizer: Option<Box<dyn LanguageMetaReorganizePolicy<M>>>) -> Self;
+    fn results(&mut self) -> Option<Metadata<M>>;
+    fn stack(&self) -> &Stack<Metadata<M>>;
+    fn stack_mut(&mut self) -> &mut Stack<Metadata<M>>;
+    fn reorganizer(&mut self) -> Option<&mut dyn LanguageMetaReorganizePolicy<M>>;
 
-    fn update_node_attrs<T: Fn(&mut Metadata)>(&mut self, node_type: MetaType, update_attrs: T) -> Option<&Metadata> {
+    fn update_node_attrs<T: Fn(&mut Metadata<M>)>(&mut self, node_type: M, update_attrs: T) -> Option<&Metadata<M>> {
         match self.stack().top() {
-            Some(top) => if top.get_node_type() != node_type {
+            Some(top) => if top.get_meta_type() != node_type {
                 panic!("[ERROR] invalid node type. expected: {:?}, actual: {:?}\n== Dump ======\n{}\n===============", 
-                    node_type, top.get_node_type(), self.stack().dump().unwrap());
+                    node_type, top.get_meta_type(), self.stack().dump().unwrap());
             },
             None => panic!("[ERROR] invalid stack status. stack should not be empty.")
         };

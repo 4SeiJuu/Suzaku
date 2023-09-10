@@ -3,7 +3,8 @@ use std::{
         LinkedList, 
         HashMap
     }, 
-    str::FromStr
+    str::FromStr, 
+    fmt::Debug
 };
 
 use serde::{
@@ -12,12 +13,14 @@ use serde::{
 };
 use serde_json::error::Result;
 
-use super::meta_type::MetaType;
+pub trait IMetaType : Sized {
+    fn get_name(&self) -> String;
+}
 
-pub trait IMeta<T>: Sized 
-where T: ToString + FromStr {
-    fn new(meta_type: T) -> Self;
-    fn get_node_type(&self) -> T;
+pub trait IMetadata<M>: Sized + Debug
+where M: IMetaType + ToString + FromStr + Serialize + Eq + Clone {
+    fn new(meta_type: M) -> Self;
+    fn get_meta_type(&self) -> M;
     fn get_attrs(&self) -> &HashMap<String, String>;
     fn get_attrs_mut(&mut self) -> &mut HashMap<String, String>;
     fn get_attr(&self, key: &str) -> Option<&String>;
@@ -28,23 +31,25 @@ where T: ToString + FromStr {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Metadata {
-    node_type: MetaType,
+pub struct Metadata<M>
+where M: IMetaType + ToString + FromStr + Serialize + Debug + Eq + Clone {
+    meta_type: M,
     attrs: HashMap<String, String>,
     members: LinkedList<Self>,
 }
 
-impl IMeta<MetaType> for Metadata {
-    fn new(node_type: MetaType) -> Self {
+impl<M> IMetadata<M> for Metadata<M>
+where M: IMetaType + ToString + FromStr + Serialize + Debug + Eq + Clone {
+    fn new(meta_type: M) -> Self {
         Metadata {
-            node_type: node_type,
+            meta_type,
             attrs: HashMap::new(),
             members: LinkedList::new(),
         }
     }
 
-    fn get_node_type(&self) -> MetaType {
-        self.node_type
+    fn get_meta_type(&self) -> M {
+        self.meta_type.clone()
     }
 
     fn get_attrs(&self) -> &HashMap<String, String> {

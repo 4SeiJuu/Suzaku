@@ -271,7 +271,6 @@ impl ToString for Elements {
             /* call outs */
             Elements::CreatorCall(creator_type, rest) => format!("{}({})", creator_type.to_string(), vec_to_string(rest, ", ")),
             Elements::MethodCall(_, caller, name, params) => format!("{}.{}({})", caller.to_string(), name, vec_to_string(params, ", ")),
-            _ => String::from("invalid value")
         }
     }
 }

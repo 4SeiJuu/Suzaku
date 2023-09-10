@@ -5,9 +5,11 @@ use serde::{
     Deserialize
 };
 
+use suzaku_codegen::MetaType;
+
 pub struct MetaTypeConvertError {}
 
-#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize, MetaType, Eq)]
 pub enum MetaType {
     File,
     PackageDeclaration,

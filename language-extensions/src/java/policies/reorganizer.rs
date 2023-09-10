@@ -1,26 +1,25 @@
-use std::{
-    collections::LinkedList
-};
+use std::collections::LinkedList;
 
 use suzaku_extension_sdk::{
     meta::{
-        IMeta,
+        IMetadata,
         Metadata
     },
-    meta_type::MetaType, 
     reorganzier::LanguageMetaReorganizePolicy
 };
+
+use crate::java::data::meta_type::MetaType;
 
 pub struct JavaMetaReorganizePolicy;
 
 impl JavaMetaReorganizePolicy {
-    pub fn reorganize_for_method_call(&mut self, meta: &mut Metadata) {
+    pub fn reorganize_for_method_call(&mut self, meta: &mut Metadata<MetaType>) {
         let mut operate_method_call = false;
-        let mut temp_children: LinkedList<Metadata> = LinkedList::new();
+        let mut temp_children: LinkedList<Metadata<MetaType>> = LinkedList::new();
 
         for member in meta.get_members().iter().rev() {
             if operate_method_call {
-                if member.get_node_type() == MetaType::Operator || member.get_node_type() == MetaType::Separator {
+                if member.get_meta_type() == MetaType::Operator || member.get_meta_type() == MetaType::Separator {
                     operate_method_call = false;
                     temp_children.push_front(member.clone());
                     continue;
@@ -28,7 +27,7 @@ impl JavaMetaReorganizePolicy {
                 temp_children.front_mut().unwrap().get_members_mut().push_front(member.clone());
             } else {
                 temp_children.push_front(member.clone());
-                if member.get_node_type() == MetaType::MethodCall {
+                if member.get_meta_type() == MetaType::MethodCall {
                     operate_method_call = true;
                 }
             }
@@ -42,23 +41,23 @@ impl JavaMetaReorganizePolicy {
     }
 }
 
-impl LanguageMetaReorganizePolicy for JavaMetaReorganizePolicy {
+impl LanguageMetaReorganizePolicy<MetaType> for JavaMetaReorganizePolicy {
     fn new() -> Self {
         JavaMetaReorganizePolicy {}
     }
 
-    fn reorganize(&mut self, meta: &mut Metadata) -> Vec<Metadata> {
-        let mut children: Vec<Metadata> = Vec::new();
+    fn reorganize(&mut self, meta: &mut Metadata<MetaType>) -> Vec<Metadata<MetaType>> {
+        let mut children: Vec<Metadata<MetaType>> = Vec::new();
 
         if meta.get_members().len() > 0 {
-            match meta.get_node_type() {
+            match meta.get_meta_type() {
                 MetaType::Expression | MetaType::Primary | MetaType::Literal | MetaType::VariableDeclarators => {
                     if meta.get_members().len() == 1 {
                         children.push(meta.get_members_mut().pop_front().unwrap());
                         return children;
                     }
     
-                    if meta.get_members().front().unwrap().get_node_type() == MetaType::Operator {
+                    if meta.get_members().front().unwrap().get_meta_type() == MetaType::Operator {
                         children.push(meta.get_members_mut().pop_front().unwrap());
                     }
                 },
@@ -70,7 +69,7 @@ impl LanguageMetaReorganizePolicy for JavaMetaReorganizePolicy {
                 },
                 MetaType::TypeType => {
                     for member in meta.get_members_mut() {
-                        children.push(match member.get_node_type() {
+                        children.push(match member.get_meta_type() {
                             MetaType::ClassOrInterfaceType | MetaType::PrimitiveType => {
                                 let mut typeType = Metadata::new(MetaType::TypeType);
                                 for (key, value) in member.get_attrs_mut() {
@@ -101,9 +100,9 @@ impl LanguageMetaReorganizePolicy for JavaMetaReorganizePolicy {
             }
     
             self.reorganize_for_method_call(meta);
-            match meta.get_node_type() {
+            match meta.get_meta_type() {
                 MetaType::Expression | MetaType::Statement => {
-                    if meta.get_members().len() == 1 && meta.get_members_mut().front().unwrap().get_node_type() == MetaType::MethodCall  {
+                    if meta.get_members().len() == 1 && meta.get_members_mut().front().unwrap().get_meta_type() == MetaType::MethodCall  {
                         children.push(meta.get_members_mut().pop_front().unwrap());
                         return children;
                     }

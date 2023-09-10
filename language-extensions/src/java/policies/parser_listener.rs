@@ -1,71 +1,33 @@
-use antlr_rust::{
-    parser::ParserNodeType,
-    tree::{
-        ErrorNode, 
-        ParseTree, 
-        ParseTreeListener, 
-        TerminalNode
-    },
+use antlr_rust::parser::ParserNodeType;
+use antlr_rust::tree::ParseTree;
+
+use antlr_rust::tree::{
+    ErrorNode, 
+    ParseTreeListener, 
+    TerminalNode
 };
 
+use suzaku_extension_sdk::parser_listener::ParserListener;
 use suzaku_extension_sdk::{
-    stack::Stack,
+    ATTR_EXPRESSION,
     meta::{
-        IMeta, 
+        IMetadata, 
         Metadata
     },
-    meta_type::MetaType,
-    reorganzier::LanguageMetaReorganizePolicy, 
     parser::LanguageParserListener,
 };
 
-use super::{
-    super::generated::{
+use crate::java::{
+    generated::{
         javaparserlistener::JavaParserListener,
         javaparser::*
     },
-    parser_policy::ATTR_EXPRESSION,
+    data::meta_type::MetaType
 };
 
-pub struct ParserListener {
-    stack: Stack<Metadata>,
-    reorganizer: Option<Box<dyn LanguageMetaReorganizePolicy>>
-}
-
-impl LanguageParserListener for ParserListener {
-    fn new(root_node: Metadata, reorganizer: Option<Box<dyn LanguageMetaReorganizePolicy>>) -> Self {
-        let mut st = Stack::new();
-        st.push(root_node);
-        ParserListener {
-            stack: st,
-            reorganizer: reorganizer
-        }
-    }
-
-    fn results(&mut self) -> Option<Metadata> {
-        self.stack_mut().pop()
-    }
-
-
-    fn stack(&self) -> &Stack<Metadata> {
-        &&self.stack
-    }
-
-    fn stack_mut(&mut self) -> &mut Stack<Metadata> {
-        &mut self.stack
-    }
-
-    fn reorganizer(&mut self) -> Option<&mut dyn LanguageMetaReorganizePolicy> {
-        match &mut self.reorganizer {
-            Some(ref mut reorg) => Some(reorg.as_mut()),
-            None => None
-        }
-    }
-}
-
-impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> for ParserListener {
+impl<'input, 'a> ParseTreeListener<'input, JavaParserContextType> for ParserListener<MetaType> {
     /// Called when parser creates terminal node
-    fn visit_terminal(&mut self, _node: &TerminalNode<'input, Node>) {
+    fn visit_terminal(&mut self, _node: &TerminalNode<'input, JavaParserContextType>) {
         match _node.get_text().as_str() {
             "=" | ">" | "<" | "!" | "~" | "?" | ":" | "==" | "<=" | ">=" | "!=" | "&&" | "||"
             | "++" | "--" | "+" | "-" | "*" | "/" | "&" | "|" | "^" | "%" | "+=" | "-=" | "*="
@@ -87,7 +49,7 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
                     .get_members_mut()
                     .push_back(sep_node);
             }
-            "static" => match self.stack_mut().top_mut().unwrap().get_node_type() {
+            "static" => match self.stack_mut().top_mut().unwrap().get_meta_type() {
                 MetaType::ImportDeclaration | MetaType::ClassBodyDeclaration => {
                     if let Some(top_node) = self.stack_mut().top_mut() {
                         let mut modifier_node = Metadata::new(MetaType::Modifier);
@@ -101,14 +63,14 @@ impl<'input, 'a, Node: ParserNodeType<'input>> ParseTreeListener<'input, Node> f
         }
     }
     /// Called when parser creates error node
-    fn visit_error_node(&mut self, _node: &ErrorNode<'input, Node>) {}
+    fn visit_error_node(&mut self, _node: &ErrorNode<'input, JavaParserContextType>) {}
     /// Called when parser enters any rule node
-    fn enter_every_rule(&mut self, _ctx: &Node::Type) {}
+    fn enter_every_rule(&mut self, _ctx: &<JavaParserContextType as ParserNodeType>::Type) {}
     /// Called when parser exits any rule node
-    fn exit_every_rule(&mut self, _ctx: &Node::Type) {}
+    fn exit_every_rule(&mut self, _ctx: &<JavaParserContextType as ParserNodeType>::Type) {}
 }
 
-impl<'input> JavaParserListener<'input> for ParserListener {
+impl<'input> JavaParserListener<'input> for ParserListener<MetaType> {
     /**
      * Enter a parse tree produced by {@link JavaParser#compilationUnit}.
      * @param ctx the parse tree

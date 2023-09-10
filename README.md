@@ -135,18 +135,25 @@ Options:
 - Maven
     - [Downloading Apache Maven](https://maven.apache.org/download.cgi)
 
-#### Build
+#### Install from jar
+check the release versons, choose one and download it.
+for example, could use following command to download the version of 4.13.0
+```shell
+$ curl -O https://www.antlr.org/download/antlr-4.13.0-complete.jar
+```
+*NOTE: the official release version still cannot generate Rust code*
+
+### ANTLR 4 Rust
+Git Repository: [rrevenantt / antlr4rust](https://github.com/rrevenantt/antlr4rust)
+
+#### Download Jar of latest version
+- [Releases](https://github.com/rrevenantt/antlr4rust/releases)
+
+#### Install from source code
 ```shell
 $ git clone -b rust-target git@github.com:rrevenantt/antlr4.git
 $ cd antlr4
 $ git submodule update --init --recursive --remote
-```
-
-** if you build it on macOS, there are some linked files may not be found. you need to run following command to replace the symbolic links with real files **
-```shell
-$ cp runtime/Rust/templates/Rust.stg tool/resources/org/antlr/v4/tool/templates/codegen/Rust/Rust.stg
-$ cp runtime/Rust/templates/Rust.test.stg runtime-testsuite/resources/org/antlr/v4/test/runtime/templates/Rust.test.stg
-$ cp runtime/Rust/templates/BaseRustTest.java runtime-testsuite/test/org/antlr/v4/test/runtime/rust/BaseRustTest.java
 ```
 
 then, run following command to build and install tool
@@ -155,16 +162,40 @@ $ mvn -DskipTests install
 ```
 when succeed, the jars will be installed to
 ```shell
-$HOME/.m2/repository/org/antlr/antlr4
+$HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar
 ```
+
+##### Known Issues for Building
+- JDK version: Should be 11
+
+- if you build it on macOS, there are some linked files may not be found. you need to run following command to replace the symbolic links with real files
+```shell
+$ rm tool/resources/org/antlr/v4/tool/templates/codegen/Rust/Rust.stg
+$ ln -s runtime/Rust/templates/Rust.stg tool/resources/org/antlr/v4/tool/templates/codegen/Rust/Rust.stg
+$ rm runtime-testsuite/resources/org/antlr/v4/test/runtime/templates/Rust.test.stg
+$ ln -s runtime/Rust/templates/Rust.test.stg runtime-testsuite/resources/org/antlr/v4/test/runtime/templates/Rust.test.stg
+$ rm runtime-testsuite/test/org/antlr/v4/test/runtime/rust/BaseRustTest.java
+$ ln -s runtime/Rust/templates/BaseRustTest.java runtime-testsuite/test/org/antlr/v4/test/runtime/rust/BaseRustTest.java
+```
+
+- broken symbolic link to   
+  - runtime-testsuite/test/org/antlr/v4/test/runtime/rust/BaseRustTest.java  
+    broken symbolic link to runtime/Rust/templates/BaseRustTest.java
+    ```shell
+    $ rm runtime-testsuite/test/org/antlr/v4/test/runtime/rust/BaseRustTest.java
+    $ cp runtime/Rust/templates/BaseRustTest.java runtime-testsuite/test/org/antlr/v4/test/runtime/rust/BaseRustTest.java
+    ```
+
+- Failed to parse plugin descriptor for org.antlr:antlr4-maven-plugin  
+  see [Failed to parse plugin descriptor](https://github.com/antlr/antlr4/issues/1940)
 
 #### Generates Lexer and Parser
 ##### Lexer
 ```shell
-$ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./language-extensions/src/java/generated/JavaLexer.g4
+$ java -jar <antlr4rust.jar> -Dlanguage=Rust ./language-extensions/src/java/generated/JavaLexer.g4
 ```
 
 ##### Parser
 ```shell
-$ java -jar $HOME/.m2/repository/org/antlr/antlr4/4.8-2-SNAPSHOT/antlr4-4.8-2-SNAPSHOT-complete.jar -Dlanguage=Rust ./language-extensions/src/java/generated/JavaParser.g4
+$ java -jar <antlr4rust.jar> -Dlanguage=Rust ./language-extensions/src/java/generated/JavaParser.g4
 ```
